@@ -25,6 +25,7 @@ fn main() -> Result<()> {
 
     let mut output = BufWriter::new(std::fs::File::create(args.output)?);
     let mut out_svg = render::svg::Svg::new();
+    dbg!("chart: ", &chart);
     out_svg.draw_all(chart.render());
     out_svg.dump(&mut output)?;
 

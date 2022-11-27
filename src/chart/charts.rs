@@ -4,12 +4,13 @@ use crate::render::{Entity, Render};
 
 use super::{Chart, ChartType};
 
+#[derive(Clone, Debug)]
 pub enum Charts {
     XYScatter(Chart<XYScatter>),
     Bar(Chart<BarChart>),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct XYPoint {
     x: f64,
     y: f64,
@@ -21,6 +22,7 @@ impl From<XYPoint> for geo::Coord {
 }
 
 type BarPoint = f64;
+#[derive(Clone, Copy, Debug)]
 pub struct BarChart {}
 impl ChartType for BarChart {
     type DataPoint = BarPoint;
@@ -36,6 +38,7 @@ impl ChartType for BarChart {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
 pub struct XYScatter {}
 
 impl ChartType for XYScatter {

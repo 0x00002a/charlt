@@ -18,11 +18,12 @@ pub struct DataPoint<T: Clone> {
     colour: Colour,
 }
 
+#[derive(Clone, Debug)]
 pub struct Chart<C: ChartType> {
     pub datasets: Vec<DataPoint<C::DataPoint>>,
     pub extra: C,
 }
-pub trait ChartType {
+pub trait ChartType: Clone {
     type DataPoint: Clone;
     const NAME: &'static str;
     fn render_datasets(
