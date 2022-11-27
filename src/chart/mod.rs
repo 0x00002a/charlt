@@ -24,19 +24,15 @@ pub struct Chart<C: ChartType> {
 trait ChartType {
     type DataPoint;
     const NAME: &'static str;
-    fn render_datasets<P: Holds<Item = Vec<Self::DataPoint>>>(&self, datasets: &Vec<P>) -> Vec<P>;
+    fn render_datasets(
+        &self,
+        datasets: &Vec<Vec<Self::DataPoint>>,
+        area: &geo::Rect,
+    ) -> Vec<geo::GeometryCollection>;
 }
 
 impl<C: ChartType> Chart<C> {
     pub fn chart_type(&self) -> &str {
         &C::NAME
-    }
-}
-impl<L, R> Holds for (L, R) {
-    type Item = R;
-    type Out<T> = (L, T);
-
-    fn map<T, F: FnOnce(Self::Item) -> T>(self, f: F) -> Self::Out<T> {
-        (self.0, f(self.1))
     }
 }
