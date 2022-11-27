@@ -30,7 +30,7 @@ pub trait ChartType: Clone {
         &self,
         datasets: &Vec<Vec<Self::DataPoint>>,
         area: &geo::Rect,
-    ) -> Vec<geo::GeometryCollection>;
+    ) -> Vec<Vec<geo::Geometry>>;
 }
 
 impl<C: ChartType> Chart<C> {

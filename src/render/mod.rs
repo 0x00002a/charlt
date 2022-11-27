@@ -17,8 +17,17 @@ pub struct Entity {
 impl Colour {
     fn to_hex(&self) -> String {
         match &self {
-            Colour::RGB(r, g, b) => format!("#{:2x}{:2x}{:2x}", r, g, b),
+            Colour::RGB(r, g, b) => format!("#{:02x}{:02x}{:02x}", r, g, b),
             Colour::HEX(h) => h.to_owned(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn colour_rgb_to_hex() {
+        assert_eq!(Colour::RGB(0, 255, 5).to_hex(), "#00ff05");
     }
 }

@@ -4,8 +4,23 @@ struct Doc {
     nodes: Vec<Node>,
 }
 impl Doc {
+    fn new() -> Self {
+        Self { nodes: Vec::new() }
+    }
     fn add_node(&mut self, n: Node) {
         self.nodes.push(n);
+    }
+    fn render(&self, header: bool) -> String {
+        let mut out = String::new();
+        if header {
+            out.push_str("<?xml version=\"1.0\" standalone=\"no\"?>\n");
+        }
+        let inner = self
+            .nodes
+            .iter()
+            .fold(Element::new("svg"), |e, n| e.child(n.clone()));
+        out.push_str(&inner.to_string());
+        out
     }
 }
 
@@ -113,14 +128,7 @@ impl Draw for Svg {
 }
 impl ToString for Doc {
     fn to_string(&self) -> String {
-        let mut out = String::new();
-        out.push_str("<?xml version=\"1.0\" standalone=\"no\"?>\n");
-        let inner = self
-            .nodes
-            .iter()
-            .fold(Element::new("svg"), |e, n| e.child(n.clone()));
-        out.push_str(&inner.to_string());
-        out
+        self.render(true)
     }
 }
 
@@ -159,5 +167,20 @@ impl ToString for Node {
             Node::Element(e) => e.to_string(),
             Node::Text(t) => t.to_owned(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn add_el_to_node() {
+        let mut d = Doc::new();
+        d.add_node(Node::Element(Element::new("e")));
+        let expected = r#"<svg >
+<e />
+</svg>"#
+            .to_owned();
+        assert_eq!(d.render(false), expected);
     }
 }

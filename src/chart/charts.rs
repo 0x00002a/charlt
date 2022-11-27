@@ -33,7 +33,7 @@ impl ChartType for BarChart {
         &self,
         datasets: &Vec<Vec<Self::DataPoint>>,
         area: &geo::Rect,
-    ) -> Vec<geo::GeometryCollection> {
+    ) -> Vec<Vec<geo::Geometry>> {
         todo!()
     }
 }
@@ -49,20 +49,21 @@ impl ChartType for XYScatter {
         &self,
         datasets: &Vec<Vec<Self::DataPoint>>,
         _: &geo::Rect,
-    ) -> Vec<geo::GeometryCollection> {
-        datasets
+    ) -> Vec<Vec<geo::Geometry>> {
+        let ds = datasets
             .iter()
             .map(|sets| {
                 let mut out = Vec::new();
-                for n in 1..out.len() {
+                for n in 1..sets.len() {
                     let curr_pt = sets[n].clone();
                     let last_pt = sets[n - 1].clone();
                     let pt = geo::Line::new(last_pt, curr_pt);
                     out.push(pt.into());
                 }
-                geo::GeometryCollection::new_from(out)
+                out
             })
-            .collect()
+            .collect();
+        ds
     }
 }
 
@@ -79,5 +80,32 @@ impl<'lua> FromLua<'lua> for XYPoint {
                 message: Some("not a table?".to_owned()),
             }),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use crate::{chart::DataPoint, render::Colour};
+
+    use super::*;
+    #[test]
+    fn render_gives_all_elements() {
+        let mut datasets = Vec::new();
+        datasets.push(DataPoint {
+            name: "test".to_owned(),
+            colour: Colour::RGB(0, 0, 255),
+            values: vec![
+                XYPoint { x: 0.0, y: 10.0 },
+                XYPoint { x: 1.0, y: 20.0 },
+                XYPoint { x: 2.0, y: 30.0 },
+            ],
+        });
+        let c = Chart {
+            datasets,
+            extra: XYScatter {},
+        };
+        let rendered = c.render();
+        assert_eq!(rendered.len(), 2);
     }
 }
