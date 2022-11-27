@@ -127,7 +127,7 @@ impl ToString for Doc {
 impl ToString for Element {
     fn to_string(&self) -> String {
         let mut out = String::new();
-        out.push_str(&format!("<{}>", self.name));
+        out.push_str(&format!("<{} ", self.name));
         out.push_str(
             &self
                 .attrs
@@ -135,18 +135,19 @@ impl ToString for Element {
                 .map(|(n, v)| format!("{}=\"{}\"", n, v))
                 .fold("".to_owned(), |xs, x| xs + " " + &x),
         );
+        if self.children.len() > 0 {
+            out.push_str(">\n")
+        }
         out.push_str(
             &self
                 .children
                 .iter()
                 .map(|c| c.to_string())
                 .reduce(|xs, x| xs + "\n" + &x)
-                .unwrap_or("".to_owned()),
+                .unwrap_or("/>".to_owned()),
         );
         if self.children.len() > 0 {
             out.push_str(&format!("\n</{}>", self.name));
-        } else {
-            out.push_str("/>");
         }
         out
     }
