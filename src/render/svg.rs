@@ -109,7 +109,7 @@ impl ToSvg for geo::Geometry {
 impl ToSvg for Entity {
     fn to_svg(&self) -> Node {
         if let Node::Element(el) = self.shape.to_svg() {
-            Node::Element(el.attr("style", format!("color: '{}'", self.colour.to_hex())))
+            Node::Element(el.attr("stroke", self.colour.to_hex()))
         } else {
             unreachable!()
         }
