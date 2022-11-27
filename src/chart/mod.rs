@@ -7,7 +7,10 @@ pub use charts::*;
 pub use fromlua::*;
 pub use render::*;
 
-use crate::render::{Colour, Entity};
+use crate::{
+    render::{Colour, Entity},
+    utils::Holds,
+};
 pub struct DataPoint<T> {
     name: String,
     values: Vec<T>,
@@ -21,11 +24,19 @@ pub struct Chart<C: ChartType> {
 trait ChartType {
     type DataPoint;
     const NAME: &'static str;
-    fn render_series(&self, datasets: &Vec<Self::DataPoint>) -> Vec<geo::Geometry>;
+    fn render_datasets<P: Holds<Item = Vec<Self::DataPoint>>>(&self, datasets: &Vec<P>) -> Vec<P>;
 }
 
 impl<C: ChartType> Chart<C> {
     pub fn chart_type(&self) -> &str {
         &C::NAME
+    }
+}
+impl<L, R> Holds for (L, R) {
+    type Item = R;
+    type Out<T> = (L, T);
+
+    fn map<T, F: FnOnce(Self::Item) -> T>(self, f: F) -> Self::Out<T> {
+        (self.0, f(self.1))
     }
 }

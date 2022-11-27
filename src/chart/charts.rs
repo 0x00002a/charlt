@@ -24,7 +24,7 @@ impl ChartType for BarChart {
 
     const NAME: &'static str = "bar";
 
-    fn render_series(&self, datasets: &Vec<Self::DataPoint>) -> Vec<geo::Geometry> {
+    fn render_datasets(&self, series: &Vec<Self::DataPoint>) -> Vec<geo::Geometry> {
         todo!()
     }
 }
@@ -35,14 +35,35 @@ impl ChartType for XYScatter {
     type DataPoint = XYPoint;
     const NAME: &'static str = "xy-scatter";
 
-    fn render_series(&self, datasets: &Vec<Self::DataPoint>) -> Vec<geo::Geometry> {
+    fn render_datasets<P: crate::utils::Holds<Item = Vec<Self::DataPoint>>>(
+        &self,
+        datasets: &Vec<P>,
+    ) -> Vec<P> {
+        datasets
+            .iter()
+            .map(|p| {
+                p.map(|sets| {
+                    let mut out = Vec::new();
+                    for n in 1..out.len() {
+                        let curr_pt = sets[n];
+                        let last_pt = sets[n - 1];
+                        let pt = geo::Line::new(last_pt, curr_pt);
+                        out.push(pt.into());
+                    }
+                    out
+                })
+            })
+            .collect()
+    }
+
+    /*fn render_datasets<P:  (&self, sets: &Vec<Self::DataPoint>) -> Vec<geo::Geometry> {
         let mut out = Vec::new();
         for n in 1..out.len() {
-            let curr_pt = datasets[n];
-            let last_pt = datasets[n - 1];
+            let curr_pt = sets[n];
+            let last_pt = sets[n - 1];
             let pt = geo::Line::new(last_pt, curr_pt);
             out.push(pt.into());
         }
         out
-    }
+    }*/
 }
