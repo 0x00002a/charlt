@@ -11,7 +11,8 @@ use crate::{
     render::{Colour, Entity},
     utils::Holds,
 };
-pub struct DataPoint<T> {
+#[derive(Clone, Debug)]
+pub struct DataPoint<T: Clone> {
     name: String,
     values: Vec<T>,
     colour: Colour,
@@ -21,8 +22,8 @@ pub struct Chart<C: ChartType> {
     pub datasets: Vec<DataPoint<C::DataPoint>>,
     pub extra: C,
 }
-trait ChartType {
-    type DataPoint;
+pub trait ChartType {
+    type DataPoint: Clone;
     const NAME: &'static str;
     fn render_datasets(
         &self,

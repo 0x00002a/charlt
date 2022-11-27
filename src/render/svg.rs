@@ -4,9 +4,8 @@ struct Doc {
     nodes: Vec<Node>,
 }
 impl Doc {
-    fn add_node(self, n: Node) -> Self {
+    fn add_node(&mut self, n: Node) {
         self.nodes.push(n);
-        self
     }
 }
 
@@ -29,11 +28,11 @@ impl Element {
             children: Vec::new(),
         }
     }
-    fn attr<N: ToString, V: ToString>(self, name: N, value: V) -> Self {
+    fn attr<N: ToString, V: ToString>(mut self, name: N, value: V) -> Self {
         self.attrs.push((name.to_string(), value.to_string()));
         self
     }
-    fn child(self, c: Node) -> Self {
+    fn child(mut self, c: Node) -> Self {
         self.children.push(c);
         self
     }
@@ -42,14 +41,28 @@ impl Element {
 #[allow(non_upper_case_globals)]
 mod element {
     use super::*;
-    pub const Path: Element = Element::new("Path");
-    pub const Line: Element = Element::new("line");
-    pub const Rect: Element = Element::new("rect");
+    pub(super) fn path() -> Element {
+        Element::new("path")
+    }
+    pub(super) fn line() -> Element {
+        Element::new("line")
+    }
+    pub(super) fn rect() -> Element {
+        Element::new("rect")
+    }
 }
 
-struct Svg {
+pub struct Svg {
     doc: Doc,
 }
+impl Svg {
+    pub fn new() -> Self {
+        Self {
+            doc: Doc { nodes: Vec::new() },
+        }
+    }
+}
+
 trait ToSvg {
     fn to_svg(&self) -> Node;
 }
@@ -58,7 +71,7 @@ impl ToSvg for geo::Geometry {
     fn to_svg(&self) -> Node {
         Node::Element(match &self {
             geo::Geometry::Point(_) => todo!(),
-            geo::Geometry::Line(l) => element::Line
+            geo::Geometry::Line(l) => element::line()
                 .attr("x1", l.start.x.to_string())
                 .attr("y1", l.start.y)
                 .attr("x2", l.end.x)
@@ -69,7 +82,7 @@ impl ToSvg for geo::Geometry {
             geo::Geometry::MultiLineString(_) => todo!(),
             geo::Geometry::MultiPolygon(_) => todo!(),
             geo::Geometry::GeometryCollection(_) => todo!(),
-            geo::Geometry::Rect(r) => element::Rect
+            geo::Geometry::Rect(r) => element::rect()
                 .attr("x", r.min().x)
                 .attr("y", r.min().y)
                 .attr("width", r.width())
@@ -89,12 +102,14 @@ impl ToSvg for Entity {
 }
 
 impl Draw for Svg {
-    fn draw(self, ent: Entity) -> Self {
-        self.doc = self.doc.add_node(ent.to_svg());
-        self
+    fn draw(&mut self, ent: Entity) {
+        self.doc.add_node(ent.to_svg());
     }
 
-    fn dump<W: std::io::Write>(&self, out: &mut W) {}
+    fn dump<W: std::io::Write>(&self, out: &mut W) -> anyhow::Result<()> {
+        out.write_all(&self.doc.to_string().as_bytes())?;
+        Ok(())
+    }
 }
 impl ToString for Doc {
     fn to_string(&self) -> String {

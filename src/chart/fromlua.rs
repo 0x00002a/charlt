@@ -2,7 +2,7 @@ use rlua::{FromLua, Table, Value};
 
 use super::{BarChart, Chart, ChartType, Charts, DataPoint, XYScatter};
 
-impl<'lua, C: FromLua<'lua>> FromLua<'lua> for DataPoint<C> {
+impl<'lua, C: FromLua<'lua> + Clone> FromLua<'lua> for DataPoint<C> {
     fn from_lua(lua_value: Value<'lua>, lua: rlua::Context<'lua>) -> rlua::Result<Self> {
         todo!()
     }
@@ -30,7 +30,7 @@ where
 
 impl<'lua> FromLua<'lua> for Charts {
     fn from_lua(lua_value: Value<'lua>, lua: rlua::Context<'lua>) -> rlua::Result<Self> {
-        match lua_value {
+        match lua_value.clone() {
             Value::Table(t) => {
                 let ctype: String = t.get("type")?;
                 match ctype.as_str() {

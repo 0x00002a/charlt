@@ -2,13 +2,14 @@ mod traits;
 pub use traits::*;
 pub mod svg;
 
+#[derive(Clone, Debug)]
 pub enum Colour {
     RGB(u8, u8, u8),
     HEX(String),
 }
 pub struct Entity {
-    colour: Colour,
-    shape: geo::Geometry,
+    pub colour: Colour,
+    pub shape: geo::Geometry,
 }
 
 impl Colour {

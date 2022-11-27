@@ -9,7 +9,8 @@ pub enum Charts {
     Bar(Chart<BarChart>),
 }
 
-struct XYPoint {
+#[derive(Clone)]
+pub struct XYPoint {
     x: f64,
     y: f64,
 }
@@ -51,8 +52,8 @@ impl ChartType for XYScatter {
             .map(|sets| {
                 let mut out = Vec::new();
                 for n in 1..out.len() {
-                    let curr_pt = sets[n];
-                    let last_pt = sets[n - 1];
+                    let curr_pt = sets[n].clone();
+                    let last_pt = sets[n - 1].clone();
                     let pt = geo::Line::new(last_pt, curr_pt);
                     out.push(pt.into());
                 }
