@@ -86,6 +86,8 @@ impl<'lua> FromLua<'lua> for XYPoint {
 #[cfg(test)]
 mod tests {
 
+    use geo::Rect;
+
     use crate::{chart::DataPoint, render::Colour};
 
     use super::*;
@@ -105,7 +107,7 @@ mod tests {
             datasets,
             extra: XYScatter {},
         };
-        let rendered = c.render();
+        let rendered = c.render(&Rect::new((0.0, 0.0), (10.0, 50.0))).unwrap();
         assert_eq!(rendered.len(), 2);
     }
 }

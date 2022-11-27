@@ -1,11 +1,12 @@
 use std::io::Write;
 
 use anyhow::Result;
+use geo::Rect;
 
-use super::Entity;
+use super::{Entity, Error};
 
 pub trait Render {
-    fn render(&self) -> Vec<Entity>;
+    fn render(&self, area: &Rect) -> Result<Vec<Entity>, Error>;
 }
 
 pub trait Draw {

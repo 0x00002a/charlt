@@ -1,6 +1,8 @@
 mod fromlua;
 mod traits;
+
 pub use fromlua::*;
+use geo::Rect;
 pub use traits::*;
 pub mod svg;
 
@@ -12,6 +14,12 @@ pub enum Colour {
 pub struct Entity {
     pub colour: Colour,
     pub shape: geo::Geometry,
+}
+
+#[derive(Clone, Debug, thiserror::Error)]
+pub enum Error {
+    #[error("not enough space to render")]
+    NotEnoughSpace { needed: Rect, provided: Rect },
 }
 
 impl Colour {

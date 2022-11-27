@@ -10,3 +10,4 @@ anyhow = { version = "1.0.66", features = ["backtrace"] }
 clap = { version = "4.0.27", features = ["derive"] }
 geo = "0.23.0"
 rlua = "0.19.4"
+thiserror = "1.0.37"
