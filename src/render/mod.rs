@@ -1,4 +1,6 @@
+mod fromlua;
 mod traits;
+pub use fromlua::*;
 pub use traits::*;
 pub mod svg;
 

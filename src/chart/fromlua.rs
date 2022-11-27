@@ -4,7 +4,23 @@ use super::{BarChart, Chart, ChartType, Charts, DataPoint, XYScatter};
 
 impl<'lua, C: FromLua<'lua> + Clone> FromLua<'lua> for DataPoint<C> {
     fn from_lua(lua_value: Value<'lua>, lua: rlua::Context<'lua>) -> rlua::Result<Self> {
-        todo!()
+        match lua_value.clone() {
+            Value::Table(t) => Ok({
+                let name = t.get("name")?;
+                let values = t.get("values")?;
+                let colour = t.get("colour")?;
+                Self {
+                    name,
+                    values,
+                    colour,
+                }
+            }),
+            _ => Err(rlua::Error::FromLuaConversionError {
+                from: lua_value.type_name(),
+                to: "DataPoint",
+                message: Some("expected table".to_owned()),
+            }),
+        }
     }
 }
 
