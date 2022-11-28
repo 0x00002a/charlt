@@ -1,4 +1,6 @@
-use geo::{BoundingRect, Coord, CoordsIter, Extremes, Line, MapCoords, Rotate, Scale, Translate};
+use geo::{
+    BoundingRect, Coord, CoordsIter, Extremes, Line, MapCoords, Rect, Rotate, Scale, Translate,
+};
 use rlua::{FromLua, Value};
 use serde::Deserialize;
 
@@ -56,6 +58,85 @@ impl ChartType for BarChart {
 #[derive(Clone, Debug, Deserialize)]
 pub struct XYScatter {
     pub axis: XYPoint<String>,
+    pub steps: XYPoint<u32>,
+    pub grid: Option<XYPoint<bool>>,
+}
+
+fn mk_grids(
+    grid: &XYPoint<bool>,
+    steps: &XYPoint<Vec<u64>>,
+    bounds: &XYPoint<(f64, f64)>,
+) -> Vec<Entity> {
+    let mut out = Vec::new();
+    if grid.x {
+        out.append(
+            &mut steps
+                .x
+                .iter()
+                .map(|x| {
+                    Entity::new(
+                        colours::GREY,
+                        Shape::Geo(geo::Geometry::Line(Line::new(
+                            (x.clone() as f64, bounds.y.0),
+                            (x.clone() as f64, bounds.y.1),
+                        ))),
+                    )
+                })
+                .collect(),
+        )
+    }
+    if grid.y {
+        out.append(
+            &mut steps
+                .y
+                .iter()
+                .map(|y| {
+                    Entity::new(
+                        colours::GREY,
+                        Shape::Geo(geo::Geometry::Line(Line::new(
+                            (bounds.x.0, y.clone() as f64),
+                            (bounds.x.1, y.clone() as f64),
+                        ))),
+                    )
+                })
+                .collect(),
+        )
+    }
+    out
+}
+impl XYScatter {
+    fn mk_labels(&self, steps: &XYPoint<Vec<u64>>, xylines: &XYPoint<f64>) -> Vec<Entity> {
+        steps
+            .x
+            .iter()
+            .map(|x| {
+                Entity::new(
+                    colours::BLACK,
+                    Shape::Text {
+                        pos: Coord {
+                            x: *x as f64,
+                            y: xylines.y,
+                        },
+                        content: x.to_string(),
+                        rotation: None,
+                    },
+                )
+            })
+            .chain(steps.y.iter().map(|y| {
+                Entity::new(
+                    colours::BLACK,
+                    Shape::Text {
+                        pos: Coord {
+                            y: xylines.y - *y as f64,
+                            x: xylines.x,
+                        },
+                        content: y.to_string(),
+                        rotation: None,
+                    },
+                )
+            }))
+            .collect()
+    }
 }
 
 impl ChartType for XYScatter {
@@ -89,7 +170,7 @@ impl ChartType for XYScatter {
         )
         .extremes()
         .unwrap();
-        let (max_x, max_y) = (bounds.x_max, bounds.y_max);
+        let (max_x, max_y) = (&bounds.x_max, &bounds.y_max);
         let scale_x = area.width() / max_x.coord.x;
         let scale_y = area.height() / max_y.coord.y;
 
@@ -120,6 +201,31 @@ impl ChartType for XYScatter {
                 pos: area.center() - geo::Coord::from((area.width(), 0.0)) / 2.0,
                 content: self.axis.y.to_string(),
                 rotation: Some(-90.0),
+            },
+        ));
+        let (step_x, step_y) = (self.steps.x as f64, self.steps.y as f64);
+        let steps_y: Vec<_> = (0..area.height() as u64 + step_y as u64)
+            .step_by(step_y as usize)
+            .collect();
+        let steps_x: Vec<_> = (0..area.width() as u64 + step_x as u64)
+            .step_by(step_x as usize)
+            .collect();
+
+        let steps = XYPoint {
+            x: steps_x,
+            y: steps_y,
+        };
+        let xylines = XYPoint {
+            x: 0.0,
+            y: area.height(),
+        };
+        ds.append(&mut self.mk_labels(&steps, &xylines));
+        ds.append(&mut mk_grids(
+            &self.grid.clone().unwrap_or(XYPoint { x: false, y: true }),
+            &steps,
+            &XYPoint {
+                x: (0.0, area.width()),
+                y: (0.0, area.height()),
             },
         ));
         ds
@@ -185,6 +291,8 @@ mod tests {
             datasets,
             extra: XYScatter {
                 axis: XYPoint::new("h", "m"),
+                steps: XYPoint { x: 10, y: 10 },
+                grid: None,
             },
         };
         let rendered = c.render(&Rect::new((0.0, 0.0), (10.0, 50.0))).unwrap();

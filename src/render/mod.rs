@@ -17,6 +17,7 @@ pub mod colours {
     use super::Colour;
 
     pub const BLACK: Colour = Colour::RGB(0, 0, 0);
+    pub const GREY: Colour = Colour::RGB(128, 128, 128);
 }
 
 pub enum Shape {
