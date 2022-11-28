@@ -107,13 +107,15 @@ impl ChartType for XYScatter {
             Shape::Text {
                 pos: area.center() + geo::Coord::from((0.0, area.height())) / 2.0,
                 content: self.axis.x.to_string(),
+                rotation: None,
             },
         ));
         ds.push(Entity::new(
             colours::BLACK,
             Shape::Text {
-                pos: area.center() + geo::Coord::from((area.width(), 0.0)) / 2.0,
+                pos: area.center() - geo::Coord::from((area.width(), 0.0)) / 2.0,
                 content: self.axis.y.to_string(),
+                rotation: Some(-90.0),
             },
         ));
         ds

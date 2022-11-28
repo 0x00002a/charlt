@@ -19,7 +19,11 @@ pub mod colours {
 
 pub enum Shape {
     Geo(geo::Geometry),
-    Text { pos: Coord, content: String },
+    Text {
+        pos: Coord,
+        content: String,
+        rotation: Option<f64>,
+    },
 }
 
 impl From<geo::Geometry> for Shape {

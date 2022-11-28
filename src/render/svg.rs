@@ -137,11 +137,23 @@ impl ToSvg for Shape {
     fn to_svg(&self) -> Node {
         match &self {
             Shape::Geo(g) => g.to_svg(),
-            Shape::Text { pos, content } => Node::Element(
+            Shape::Text {
+                pos,
+                content,
+                rotation,
+            } => Node::Element(
                 element::text()
                     .child(Node::Text(content.clone()))
-                    .attr("x", pos.x)
-                    .attr("y", pos.y),
+                    .attr(
+                        "transform",
+                        format!(
+                            "translate({} {}) rotate({})",
+                            pos.x,
+                            pos.y,
+                            rotation.unwrap_or(0.0)
+                        ),
+                    )
+                    .attr("text-anchor", "middle"),
             ),
         }
     }
