@@ -5,6 +5,7 @@ use serde::{
 };
 use thiserror::Error;
 
+#[derive(Clone)]
 struct Deserializer<'lua> {
     input: Value<'lua>,
 }
@@ -20,7 +21,7 @@ impl<'de, 'lua> Deserializer<'lua> {}
 pub enum LuaDeserializeErr {
     #[error("lua error {0}")]
     Lua(rlua::Error),
-    #[error("{0}")]
+    #[error("serde err: {0}")]
     Custom(String),
     #[error("wrong type expecting {0} found {1}")]
     WrongType(String, String),
@@ -228,11 +229,26 @@ impl<'de, 'lua> de::SeqAccess<'de> for TableSeq<'lua> {
 impl<'de, 'lua> de::Deserializer<'de> for Deserializer<'lua> {
     type Error = LuaDeserializeErr;
 
-    fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
     {
-        unimpl()
+        match self.input.clone() {
+            Value::Boolean(b) => visitor.visit_bool(b),
+            Value::Nil => visitor.visit_none(),
+            Value::Integer(n) => visitor.visit_i64(n),
+            Value::Number(n) => visitor.visit_f64(n),
+            Value::String(s) => visitor.visit_string(s.to_str().unwrap().to_owned()),
+            Value::Table(t) => {
+                if t.raw_len() > 0 {
+                    self.deserialize_seq(visitor)
+                } else {
+                    self.deserialize_map(visitor)
+                }
+            }
+            Value::Error(e) => Err(DeErr::Lua(e)),
+            _ => unimplemented!(),
+        }
     }
 
     fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -424,14 +440,14 @@ impl<'de, 'lua> de::Deserializer<'de> for Deserializer<'lua> {
     where
         V: de::Visitor<'de>,
     {
-        unimpl()
+        unimplemented!()
     }
 
     fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
     {
-        unimpl()
+        unimplemented!()
     }
 
     fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error>

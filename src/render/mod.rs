@@ -8,6 +8,7 @@ pub use traits::*;
 pub mod svg;
 
 #[derive(Clone, Debug, Deserialize)]
+#[serde(untagged)]
 pub enum Colour {
     RGB(u8, u8, u8),
     HEX(String),
