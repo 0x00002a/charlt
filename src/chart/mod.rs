@@ -17,7 +17,6 @@ pub struct DataPoint<T: Clone> {
     values: Vec<T>,
     colour: Colour,
 }
-
 #[derive(Clone, Debug)]
 pub struct Chart<C: ChartType> {
     pub datasets: Vec<DataPoint<C::DataPoint>>,
@@ -28,9 +27,9 @@ pub trait ChartType: Clone {
     const NAME: &'static str;
     fn render_datasets(
         &self,
-        datasets: &Vec<Vec<Self::DataPoint>>,
+        datasets: &Vec<DataPoint<Self::DataPoint>>,
         area: &geo::Rect,
-    ) -> Vec<Vec<geo::Geometry>>;
+    ) -> Vec<Entity>;
 }
 
 impl<C: ChartType> Chart<C> {

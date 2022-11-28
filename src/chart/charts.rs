@@ -1,9 +1,10 @@
 use geo::Scale;
 use rlua::{FromLua, Value};
 
-use crate::render::{Entity, Render};
+use crate::render::colours;
+use crate::render::{Entity, Render, Shape};
 
-use super::{Chart, ChartType};
+use super::{Chart, ChartType, DataPoint};
 
 #[derive(Clone, Debug)]
 pub enum Charts {
@@ -41,9 +42,9 @@ impl ChartType for BarChart {
 
     fn render_datasets(
         &self,
-        datasets: &Vec<Vec<Self::DataPoint>>,
+        datasets: &Vec<super::DataPoint<Self::DataPoint>>,
         area: &geo::Rect,
-    ) -> Vec<Vec<geo::Geometry>> {
+    ) -> Vec<Entity> {
         todo!()
     }
 }
@@ -59,13 +60,14 @@ impl ChartType for XYScatter {
 
     fn render_datasets(
         &self,
-        datasets: &Vec<Vec<Self::DataPoint>>,
+        datasets: &Vec<DataPoint<XYPoint<f64>>>,
         area: &geo::Rect,
-    ) -> Vec<Vec<geo::Geometry>> {
+    ) -> Vec<Entity> {
         let mut ds = Vec::new();
         let mut max_x: f64 = 0.0;
         let mut max_y: f64 = 0.0;
-        for sets in datasets {
+        for point in datasets {
+            let sets = &point.values;
             let mut out = Vec::new();
             for n in 1..sets.len() {
                 let curr_pt = sets[n].clone();
@@ -75,19 +77,36 @@ impl ChartType for XYScatter {
                 max_x = max_x.max(curr_pt.x);
                 max_y = max_y.max(curr_pt.y);
                 let pt = geo::Line::new(last_pt, curr_pt);
-                out.push(pt);
+                out.push(pt.into());
             }
-            ds.push(out);
+            ds.push((point.colour.clone(), geo::GeometryCollection::new_from(out)));
         }
         let scale_x = area.width() / max_x;
         let scale_y = area.height() / max_y;
-        ds.into_iter()
-            .map(|sps| {
-                sps.into_iter()
-                    .map(|s| s.scale_xy(scale_x, scale_y).into())
-                    .collect()
+        let mut ds: Vec<_> = ds
+            .into_iter()
+            .map(|(c, s)| {
+                Entity::new(
+                    c,
+                    geo::Geometry::GeometryCollection(s.scale_xy(scale_x, scale_y)).into(),
+                )
             })
-            .collect()
+            .collect();
+        ds.push(Entity::new(
+            colours::BLACK,
+            Shape::Text {
+                pos: area.center() + geo::Coord::from((0.0, area.height())) / 2.0,
+                content: self.axis.x.to_string(),
+            },
+        ));
+        ds.push(Entity::new(
+            colours::BLACK,
+            Shape::Text {
+                pos: area.center() + geo::Coord::from((area.width(), 0.0)) / 2.0,
+                content: self.axis.y.to_string(),
+            },
+        ));
+        ds
     }
 }
 

@@ -2,7 +2,7 @@ mod fromlua;
 mod traits;
 
 pub use fromlua::*;
-use geo::Rect;
+use geo::{Coord, Rect};
 pub use traits::*;
 pub mod svg;
 
@@ -11,9 +11,32 @@ pub enum Colour {
     RGB(u8, u8, u8),
     HEX(String),
 }
+pub mod colours {
+    use super::Colour;
+
+    pub const BLACK: Colour = Colour::RGB(0, 0, 0);
+}
+
+pub enum Shape {
+    Geo(geo::Geometry),
+    Text { pos: Coord, content: String },
+}
+
+impl From<geo::Geometry> for Shape {
+    fn from(g: geo::Geometry) -> Self {
+        Shape::Geo(g)
+    }
+}
+
 pub struct Entity {
     pub colour: Colour,
-    pub shape: geo::Geometry,
+    pub shape: Shape,
+}
+
+impl Entity {
+    pub fn new(colour: Colour, shape: Shape) -> Self {
+        Self { colour, shape }
+    }
 }
 
 #[derive(Clone, Debug, thiserror::Error)]

@@ -1,4 +1,4 @@
-use super::{Draw, Entity};
+use super::{Draw, Entity, Shape};
 
 struct Doc {
     nodes: Vec<Node>,
@@ -65,6 +65,14 @@ mod element {
     pub(super) fn rect() -> Element {
         Element::new("rect")
     }
+
+    pub(super) fn group() -> Element {
+        Element::new("g")
+    }
+
+    pub(super) fn text() -> Element {
+        Element::new("text")
+    }
 }
 
 pub struct Svg {
@@ -96,7 +104,9 @@ impl ToSvg for geo::Geometry {
             geo::Geometry::MultiPoint(_) => todo!(),
             geo::Geometry::MultiLineString(_) => todo!(),
             geo::Geometry::MultiPolygon(_) => todo!(),
-            geo::Geometry::GeometryCollection(_) => todo!(),
+            geo::Geometry::GeometryCollection(c) => {
+                c.iter().fold(element::group(), |g, e| g.child(e.to_svg()))
+            }
             geo::Geometry::Rect(r) => element::rect()
                 .attr("x", r.min().x)
                 .attr("y", r.min().y)
@@ -112,6 +122,19 @@ impl ToSvg for Entity {
             Node::Element(el.attr("stroke", self.colour.to_hex()))
         } else {
             unreachable!()
+        }
+    }
+}
+impl ToSvg for Shape {
+    fn to_svg(&self) -> Node {
+        match &self {
+            Shape::Geo(g) => g.to_svg(),
+            Shape::Text { pos, content } => Node::Element(
+                element::text()
+                    .child(Node::Text(content.clone()))
+                    .attr("x", pos.x)
+                    .attr("y", pos.y),
+            ),
         }
     }
 }
