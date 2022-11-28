@@ -1,4 +1,4 @@
-use geo::{Rotate, Scale};
+use geo::{BoundingRect, Coord, CoordsIter, Extremes, Line, MapCoords, Rotate, Scale, Translate};
 use rlua::{FromLua, Value};
 
 use crate::render::colours;
@@ -64,33 +64,12 @@ impl ChartType for XYScatter {
         area: &geo::Rect,
     ) -> Vec<Entity> {
         let mut ds = Vec::new();
-        let mut max_x: f64 = 0.0;
-        let mut max_y: f64 = 0.0;
-        for point in datasets {
-            let sets = &point.values;
-            for n in 1..sets.len() {
-                let curr_pt = sets[n].clone();
-                let last_pt = sets[n - 1].clone();
-                max_x = max_x.max(last_pt.x);
-                max_y = max_y.max(last_pt.y);
-                max_x = max_x.max(curr_pt.x);
-                max_y = max_y.max(curr_pt.y);
-            }
-        }
-
-        let scale_x = area.width() / max_x;
-        let scale_y = area.height() / max_y;
         for point in datasets {
             let sets = &point.values;
             let mut out = Vec::new();
             for n in 1..sets.len() {
-                let mut curr_pt = sets[n].clone();
-                curr_pt.x *= scale_x;
-                curr_pt.y *= scale_y;
-
-                let mut last_pt = sets[n - 1].clone();
-                last_pt.x *= scale_x;
-                last_pt.y *= scale_y;
+                let curr_pt = sets[n].clone();
+                let last_pt = sets[n - 1].clone();
 
                 let pt = geo::Line::new(last_pt, curr_pt);
                 out.push(pt.into());
@@ -100,9 +79,28 @@ impl ChartType for XYScatter {
                 geo::GeometryCollection::new_from(out).rotate_around_center(0.0),
             ));
         }
+        let bounds = geo::GeometryCollection::from_iter(
+            ds.iter()
+                .map(|(_, g)| geo::Geometry::GeometryCollection(g.clone())),
+        )
+        .extremes()
+        .unwrap();
+        let (max_x, max_y) = (bounds.x_max, bounds.y_max);
+        let scale_x = area.width() / max_x.coord.x;
+        let scale_y = area.height() / max_y.coord.y;
+
         let mut ds: Vec<_> = ds
             .into_iter()
-            .map(|(c, s)| Entity::new(c, geo::Geometry::GeometryCollection(s).into()))
+            .map(|(c, s)| {
+                Entity::new(
+                    c,
+                    geo::Geometry::GeometryCollection({
+                        s.scale_around_point(scale_x, scale_y, area.min())
+                            .flip_vertical()
+                    })
+                    .into(),
+                )
+            })
             .collect();
         ds.push(Entity::new(
             colours::BLACK,
@@ -119,6 +117,34 @@ impl ChartType for XYScatter {
             },
         ));
         ds
+    }
+}
+
+trait Flip {
+    fn flip_vertical(self) -> Self;
+}
+impl<T: geo::CoordFloat> Flip for geo::GeometryCollection<T> {
+    fn flip_vertical(self) -> Self {
+        let max_y = self.bounding_rect().unwrap().max().y;
+        self.map_coords(|mut c| {
+            c.y = max_y - c.y;
+            c
+        })
+    }
+}
+
+impl<T: geo::CoordNum> Flip for Line<T> {
+    fn flip_vertical(self) -> Self {
+        Self {
+            start: Coord {
+                x: self.start.x,
+                y: self.end.y,
+            },
+            end: Coord {
+                x: self.end.x,
+                y: self.start.y,
+            },
+        }
     }
 }
 
