@@ -2,10 +2,16 @@ use super::{Draw, Entity, Shape};
 
 struct Doc {
     nodes: Vec<Node>,
+    width: u32,
+    height: u32,
 }
 impl Doc {
-    fn new() -> Self {
-        Self { nodes: Vec::new() }
+    fn new(width: u32, height: u32) -> Self {
+        Self {
+            nodes: Vec::new(),
+            width,
+            height,
+        }
     }
     fn add_node(&mut self, n: Node) {
         self.nodes.push(n);
@@ -15,10 +21,12 @@ impl Doc {
         if header {
             out.push_str("<?xml version=\"1.0\" standalone=\"no\"?>\n");
         }
-        let inner = self
-            .nodes
-            .iter()
-            .fold(Element::new("svg"), |e, n| e.child(n.clone()));
+        let inner = self.nodes.iter().fold(
+            Element::new("svg")
+                .attr("width", self.width)
+                .attr("height", self.height),
+            |e, n| e.child(n.clone()),
+        );
         out.push_str(&inner.to_string());
         out
     }
@@ -79,9 +87,9 @@ pub struct Svg {
     doc: Doc,
 }
 impl Svg {
-    pub fn new() -> Self {
+    pub fn new(width: u32, height: u32) -> Self {
         Self {
-            doc: Doc { nodes: Vec::new() },
+            doc: Doc::new(width, height),
         }
     }
 }
@@ -198,7 +206,7 @@ mod tests {
     use super::*;
     #[test]
     fn add_el_to_node() {
-        let mut d = Doc::new();
+        let mut d = Doc::new(10, 10);
         d.add_node(Node::Element(Element::new("e")));
         let expected = r#"<svg >
 <e />

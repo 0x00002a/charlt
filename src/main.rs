@@ -31,7 +31,7 @@ fn main() -> Result<()> {
     let chart = api::load_chart(&mut input)?;
 
     let mut output = BufWriter::new(std::fs::File::create(args.output)?);
-    let mut out_svg = render::svg::Svg::new();
+    let mut out_svg = render::svg::Svg::new(args.width, args.height);
     out_svg.draw_all(chart.render(&Rect::new(
         (0.0, 0.0),
         (args.width as f64, args.height as f64),
