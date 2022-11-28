@@ -71,7 +71,17 @@ impl<'lua> FromLua<'lua> for Charts {
 
 impl<'lua> FromLua<'lua> for XYScatter {
     fn from_lua(lua_value: rlua::Value<'lua>, lua: rlua::Context<'lua>) -> rlua::Result<Self> {
-        Ok(XYScatter {})
+        match lua_value {
+            Value::Table(t) => Ok({
+                let axis = t.get("axis")?;
+                Self { axis }
+            }),
+            _ => Err(rlua::Error::FromLuaConversionError {
+                from: lua_value.type_name(),
+                to: "XYScatter",
+                message: Some("expected table".into()),
+            }),
+        }
     }
 }
 

@@ -1,3 +1,4 @@
+use geo::Scale;
 use rlua::{FromLua, Value};
 
 use crate::render::{Entity, Render};
@@ -11,12 +12,21 @@ pub enum Charts {
 }
 
 #[derive(Clone, Debug)]
-pub struct XYPoint {
-    x: f64,
-    y: f64,
+pub struct XYPoint<T> {
+    x: T,
+    y: T,
 }
-impl From<XYPoint> for geo::Coord {
-    fn from(me: XYPoint) -> Self {
+
+impl<T> XYPoint<T> {
+    pub fn new<T1: Into<T>, T2: Into<T>>(x: T1, y: T2) -> Self {
+        Self {
+            x: x.into(),
+            y: y.into(),
+        }
+    }
+}
+impl From<XYPoint<f64>> for geo::Coord {
+    fn from(me: XYPoint<f64>) -> Self {
         geo::Coord { x: me.x, y: me.y }
     }
 }
@@ -38,36 +48,50 @@ impl ChartType for BarChart {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
-pub struct XYScatter {}
+#[derive(Clone, Debug)]
+pub struct XYScatter {
+    pub axis: XYPoint<String>,
+}
 
 impl ChartType for XYScatter {
-    type DataPoint = XYPoint;
+    type DataPoint = XYPoint<f64>;
     const NAME: &'static str = "xy-scatter";
 
     fn render_datasets(
         &self,
         datasets: &Vec<Vec<Self::DataPoint>>,
-        _: &geo::Rect,
+        area: &geo::Rect,
     ) -> Vec<Vec<geo::Geometry>> {
-        let ds = datasets
-            .iter()
-            .map(|sets| {
-                let mut out = Vec::new();
-                for n in 1..sets.len() {
-                    let curr_pt = sets[n].clone();
-                    let last_pt = sets[n - 1].clone();
-                    let pt = geo::Line::new(last_pt, curr_pt);
-                    out.push(pt.into());
-                }
-                out
+        let mut ds = Vec::new();
+        let mut max_x: f64 = 0.0;
+        let mut max_y: f64 = 0.0;
+        for sets in datasets {
+            let mut out = Vec::new();
+            for n in 1..sets.len() {
+                let curr_pt = sets[n].clone();
+                let last_pt = sets[n - 1].clone();
+                max_x = max_x.max(last_pt.x);
+                max_y = max_y.max(last_pt.y);
+                max_x = max_x.max(curr_pt.x);
+                max_y = max_y.max(curr_pt.y);
+                let pt = geo::Line::new(last_pt, curr_pt);
+                out.push(pt);
+            }
+            ds.push(out);
+        }
+        let scale_x = area.width() / max_x;
+        let scale_y = area.height() / max_y;
+        ds.into_iter()
+            .map(|sps| {
+                sps.into_iter()
+                    .map(|s| s.scale_xy(scale_x, scale_y).into())
+                    .collect()
             })
-            .collect();
-        ds
+            .collect()
     }
 }
 
-impl<'lua> FromLua<'lua> for XYPoint {
+impl<'lua, T: FromLua<'lua>> FromLua<'lua> for XYPoint<T> {
     fn from_lua(lua_value: rlua::Value<'lua>, lua: rlua::Context<'lua>) -> rlua::Result<Self> {
         match lua_value {
             Value::Table(t) => Ok(Self {
@@ -105,7 +129,9 @@ mod tests {
         });
         let c = Chart {
             datasets,
-            extra: XYScatter {},
+            extra: XYScatter {
+                axis: XYPoint::new("h", "m"),
+            },
         };
         let rendered = c.render(&Rect::new((0.0, 0.0), (10.0, 50.0))).unwrap();
         assert_eq!(rendered.len(), 2);
