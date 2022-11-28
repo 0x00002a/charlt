@@ -96,7 +96,7 @@ impl ChartType for XYScatter {
                     c,
                     geo::Geometry::GeometryCollection({
                         s.scale_around_point(scale_x, scale_y, area.min())
-                            .flip_vertical()
+                            .scale_xy(1.0, -1.0)
                     })
                     .into(),
                 )
@@ -122,15 +122,6 @@ impl ChartType for XYScatter {
 
 trait Flip {
     fn flip_vertical(self) -> Self;
-}
-impl<T: geo::CoordFloat> Flip for geo::GeometryCollection<T> {
-    fn flip_vertical(self) -> Self {
-        let max_y = self.bounding_rect().unwrap().max().y;
-        self.map_coords(|mut c| {
-            c.y = max_y - c.y;
-            c
-        })
-    }
 }
 
 impl<T: geo::CoordNum> Flip for Line<T> {
