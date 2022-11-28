@@ -1,3 +1,4 @@
+use font_kit::font::Font;
 use geo::{
     BoundingRect, Coord, CoordsIter, Extremes, Line, MapCoords, Rect, Rotate, Scale, Translate,
 };
@@ -50,6 +51,7 @@ impl ChartType for BarChart {
         &self,
         datasets: &Vec<super::DataPoint<Self::DataPoint>>,
         area: &geo::Rect,
+        _: &Font,
     ) -> Vec<Entity> {
         todo!()
     }
@@ -105,7 +107,12 @@ fn mk_grids(
     out
 }
 impl XYScatter {
-    fn mk_labels(&self, steps: &XYPoint<Vec<u64>>, xylines: &XYPoint<f64>) -> Vec<Entity> {
+    fn mk_labels(
+        &self,
+        steps: &XYPoint<Vec<u64>>,
+        xylines: &XYPoint<f64>,
+        lbl_font: &Font,
+    ) -> Vec<Entity> {
         steps
             .x
             .iter()
@@ -119,6 +126,7 @@ impl XYScatter {
                         },
                         content: x.to_string(),
                         rotation: None,
+                        font: Some(lbl_font.clone()),
                     },
                 )
             })
@@ -132,6 +140,7 @@ impl XYScatter {
                         },
                         content: y.to_string(),
                         rotation: None,
+                        font: Some(lbl_font.clone()),
                     },
                 )
             }))
@@ -147,6 +156,7 @@ impl ChartType for XYScatter {
         &self,
         datasets: &Vec<DataPoint<XYPoint<f64>>>,
         area: &geo::Rect,
+        label_font: &Font,
     ) -> Vec<Entity> {
         let mut ds = Vec::new();
         for point in datasets {
@@ -193,6 +203,7 @@ impl ChartType for XYScatter {
                 pos: area.center() + geo::Coord::from((0.0, area.height())) / 2.0,
                 content: self.axis.x.to_string(),
                 rotation: None,
+                font: Some(label_font.clone()),
             },
         ));
         ds.push(Entity::new(
@@ -201,6 +212,7 @@ impl ChartType for XYScatter {
                 pos: area.center() - geo::Coord::from((area.width(), 0.0)) / 2.0,
                 content: self.axis.y.to_string(),
                 rotation: Some(-90.0),
+                font: Some(label_font.clone()),
             },
         ));
         let (step_x, step_y) = (self.steps.x as f64, self.steps.y as f64);
@@ -219,7 +231,7 @@ impl ChartType for XYScatter {
             x: 0.0,
             y: area.height(),
         };
-        ds.append(&mut self.mk_labels(&steps, &xylines));
+        ds.append(&mut self.mk_labels(&steps, &xylines, &label_font));
         ds.append(&mut mk_grids(
             &self.grid.clone().unwrap_or(XYPoint { x: false, y: true }),
             &steps,
@@ -294,6 +306,7 @@ mod tests {
                 steps: XYPoint { x: 10, y: 10 },
                 grid: None,
             },
+            font: None,
         };
         let rendered = c.render(&Rect::new((0.0, 0.0), (10.0, 50.0))).unwrap();
         assert_eq!(rendered.len(), 2);

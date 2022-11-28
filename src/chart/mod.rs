@@ -1,6 +1,7 @@
 mod charts;
 mod fromlua;
 mod render;
+use font_kit::font::{self, Font};
 use serde::{
     de::{self, DeserializeOwned},
     Deserialize,
@@ -27,6 +28,8 @@ pub struct Chart<C, Pt: Clone> {
 
     #[serde(flatten)]
     pub extra: C,
+
+    pub font: Option<String>,
 }
 pub trait ChartType: Clone {
     type DataPoint: Clone;
@@ -35,5 +38,6 @@ pub trait ChartType: Clone {
         &self,
         datasets: &Vec<DataPoint<Self::DataPoint>>,
         area: &geo::Rect,
+        label_font: &Font,
     ) -> Vec<Entity>;
 }

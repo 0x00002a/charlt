@@ -1,3 +1,7 @@
+use anyhow::anyhow;
+use font_kit::family_name::FamilyName;
+use font_kit::properties::Properties;
+use font_kit::source::{self, Source};
 use geo::Rect;
 
 use crate::render;
@@ -9,7 +13,27 @@ use super::*;
 
 impl<C: ChartType> Render for Chart<C, C::DataPoint> {
     fn render(&self, area: &Rect) -> Result<Vec<render::Entity>, render::Error> {
-        let plot_shapes = self.extra.render_datasets(&self.datasets, area);
+        let font = match self
+            .font
+            .clone()
+            .map(|f| {
+                source::SystemSource::new()
+                    .select_family_by_name(&f)?
+                    .fonts()
+                    .get(0)
+                    .map(|h| h.clone())
+                    .ok_or(anyhow!("font family is empty"))
+            })
+            .unwrap_or_else(|| {
+                Ok(source::SystemSource::new()
+                    .select_best_match(&[FamilyName::SansSerif], &Properties::new())?)
+            })
+            .and_then(|f| Ok(f.load()?))
+        {
+            Err(e) => Err(render::Error::FontLoading(e)),
+            Ok(v) => Ok(v),
+        }?;
+        let plot_shapes = self.extra.render_datasets(&self.datasets, area, &font);
         Ok(plot_shapes)
     }
 }

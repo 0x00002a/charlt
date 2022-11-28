@@ -55,6 +55,14 @@ impl Element {
         self.attrs.push((name.to_string(), value.to_string()));
         self
     }
+
+    fn maybe_attr<N: ToString, V: ToString>(mut self, name: N, value: Option<V>) -> Self {
+        if value.is_some() {
+            self.attr(name, value.unwrap())
+        } else {
+            self
+        }
+    }
     fn child(mut self, c: Node) -> Self {
         self.children.push(c);
         self
@@ -141,6 +149,7 @@ impl ToSvg for Shape {
                 pos,
                 content,
                 rotation,
+                font,
             } => Node::Element(
                 element::text()
                     .child(Node::Text(content.clone()))
@@ -153,7 +162,12 @@ impl ToSvg for Shape {
                             rotation.unwrap_or(0.0)
                         ),
                     )
-                    .attr("text-anchor", "middle"),
+                    .attr("text-anchor", "middle")
+                    .maybe_attr(
+                        "style",
+                        font.clone()
+                            .map(|f| format!("font-family: {};", f.full_name())),
+                    ),
             ),
         }
     }

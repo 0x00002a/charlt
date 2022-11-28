@@ -1,6 +1,7 @@
 mod fromlua;
 mod traits;
 
+use font_kit::font::Font;
 pub use fromlua::*;
 use geo::{Coord, Rect};
 use serde::Deserialize;
@@ -26,7 +27,27 @@ pub enum Shape {
         pos: Coord,
         content: String,
         rotation: Option<f64>,
+        font: Option<Font>,
     },
+}
+
+impl Shape {
+    fn text_with_font<P: Into<Coord>, C: ToString>(pos: P, content: C, font: Font) -> Self {
+        Shape::Text {
+            pos: pos.into(),
+            content: content.to_string(),
+            rotation: None,
+            font: Some(font),
+        }
+    }
+    fn text<P: Into<Coord>, C: ToString>(pos: P, content: C) -> Self {
+        Shape::Text {
+            pos: pos.into(),
+            content: content.to_string(),
+            rotation: None,
+            font: None,
+        }
+    }
 }
 
 impl From<geo::Geometry> for Shape {
@@ -46,10 +67,10 @@ impl Entity {
     }
 }
 
-#[derive(Clone, Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("not enough space to render")]
-    NotEnoughSpace { needed: Rect, provided: Rect },
+    FontLoading(anyhow::Error),
 }
 
 impl Colour {
