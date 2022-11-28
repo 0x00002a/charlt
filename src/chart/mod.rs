@@ -1,6 +1,10 @@
 mod charts;
 mod fromlua;
 mod render;
+use serde::{
+    de::{self, DeserializeOwned},
+    Deserialize,
+};
 use std::ops::{Deref, DerefMut};
 
 pub use charts::*;
@@ -11,15 +15,17 @@ use crate::{
     render::{Colour, Entity},
     utils::Holds,
 };
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct DataPoint<T: Clone> {
     name: String,
     values: Vec<T>,
     colour: Colour,
 }
-#[derive(Clone, Debug)]
-pub struct Chart<C: ChartType> {
-    pub datasets: Vec<DataPoint<C::DataPoint>>,
+#[derive(Clone, Debug, Deserialize)]
+pub struct Chart<C, Pt: Clone> {
+    pub datasets: Vec<DataPoint<Pt>>,
+
+    #[serde(flatten)]
     pub extra: C,
 }
 pub trait ChartType: Clone {
@@ -30,10 +36,4 @@ pub trait ChartType: Clone {
         datasets: &Vec<DataPoint<Self::DataPoint>>,
         area: &geo::Rect,
     ) -> Vec<Entity>;
-}
-
-impl<C: ChartType> Chart<C> {
-    pub fn chart_type(&self) -> &str {
-        &C::NAME
-    }
 }

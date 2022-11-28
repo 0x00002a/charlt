@@ -7,7 +7,7 @@ use super::Chart;
 
 use super::*;
 
-impl<C: ChartType> Render for Chart<C> {
+impl<C: ChartType> Render for Chart<C, C::DataPoint> {
     fn render(&self, area: &Rect) -> Result<Vec<render::Entity>, render::Error> {
         let plot_shapes = self.extra.render_datasets(&self.datasets, area);
         Ok(plot_shapes)

@@ -3,10 +3,11 @@ mod traits;
 
 pub use fromlua::*;
 use geo::{Coord, Rect};
+use serde::Deserialize;
 pub use traits::*;
 pub mod svg;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize)]
 pub enum Colour {
     RGB(u8, u8, u8),
     HEX(String),

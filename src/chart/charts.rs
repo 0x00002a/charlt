@@ -1,18 +1,22 @@
 use geo::{BoundingRect, Coord, CoordsIter, Extremes, Line, MapCoords, Rotate, Scale, Translate};
 use rlua::{FromLua, Value};
+use serde::Deserialize;
 
 use crate::render::colours;
 use crate::render::{Entity, Render, Shape};
 
 use super::{Chart, ChartType, DataPoint};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize)]
+#[serde(tag = "type")]
 pub enum Charts {
-    XYScatter(Chart<XYScatter>),
-    Bar(Chart<BarChart>),
+    #[serde(rename = "xy-scatter")]
+    XYScatter(Chart<XYScatter, XYPoint<f64>>),
+    #[serde(rename = "bar")]
+    Bar(Chart<BarChart, BarPoint>),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct XYPoint<T> {
     x: T,
     y: T,
@@ -33,7 +37,7 @@ impl From<XYPoint<f64>> for geo::Coord {
 }
 
 type BarPoint = f64;
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Deserialize)]
 pub struct BarChart {}
 impl ChartType for BarChart {
     type DataPoint = BarPoint;
@@ -49,7 +53,7 @@ impl ChartType for BarChart {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct XYScatter {
     pub axis: XYPoint<String>,
 }

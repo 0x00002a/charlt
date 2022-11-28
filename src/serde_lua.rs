@@ -1,9 +1,17 @@
 use rlua::{Lua, Value};
-use serde::de::{self, SeqAccess};
+use serde::{
+    de::{self, SeqAccess},
+    Deserialize,
+};
 use thiserror::Error;
 
-pub struct Deserializer<'lua> {
+struct Deserializer<'lua> {
     input: Value<'lua>,
+}
+
+pub fn from_lua<'de, V: Deserialize<'de>>(v: Value) -> Result<V, DeErr> {
+    let de = Deserializer { input: v };
+    V::deserialize(de)
 }
 
 impl<'de, 'lua> Deserializer<'lua> {}
@@ -29,6 +37,9 @@ fn type_err<R>(f: &Value, t: &str) -> Result<R, LuaDeserializeErr> {
         t.to_owned(),
     ))
 }
+unsafe impl Send for LuaDeserializeErr {}
+unsafe impl Sync for LuaDeserializeErr {}
+
 fn unimpl<R>() -> Result<R, LuaDeserializeErr> {
     Err(LuaDeserializeErr::Unimplemented)
 }

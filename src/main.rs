@@ -8,6 +8,7 @@ use render::{Draw, Render};
 mod api;
 mod chart;
 mod render;
+mod serde_lua;
 mod utils;
 
 #[derive(Parser)]
