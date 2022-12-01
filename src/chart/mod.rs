@@ -2,6 +2,7 @@ mod charts;
 mod fromlua;
 mod render;
 use font_kit::font::{self, Font};
+use piet::RenderContext;
 use serde::{
     de::{self, DeserializeOwned},
     Deserialize,
@@ -34,10 +35,11 @@ pub struct Chart<C, Pt: Clone> {
 pub trait ChartType: Clone {
     type DataPoint: Clone;
     const NAME: &'static str;
-    fn render_datasets(
+    fn render_datasets<R: RenderContext>(
         &self,
         datasets: &Vec<DataPoint<Self::DataPoint>>,
         area: &geo::Rect,
         label_font: &Font,
-    ) -> Vec<Entity>;
+        r: &mut R,
+    );
 }

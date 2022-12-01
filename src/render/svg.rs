@@ -1,4 +1,5 @@
 use super::{Draw, Entity, Shape};
+use piet_svg::Text;
 
 struct Doc {
     nodes: Vec<Node>,
@@ -162,12 +163,7 @@ impl ToSvg for Shape {
                             rotation.unwrap_or(0.0)
                         ),
                     )
-                    .attr("text-anchor", "middle")
-                    .maybe_attr(
-                        "style",
-                        font.clone()
-                            .map(|f| format!("font-family: {};", f.full_name())),
-                    ),
+                    .attr("text-anchor", "middle"), //.attr("style", format!("font-family: {};", font.full_name())),
             ),
         }
     }
