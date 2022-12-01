@@ -19,24 +19,24 @@ use crate::{
 };
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct DataPointMeta {
+pub struct DatasetMeta {
     name: String,
     colour: Colour,
     #[serde(default = "default_line_thickness")]
     thickness: f64,
 }
 #[derive(Clone, Debug, Deserialize)]
-pub struct DataPoint<T: Clone> {
+pub struct Dataset<T: Clone> {
     values: Vec<T>,
     #[serde(flatten)]
-    extra: DataPointMeta,
+    extra: DatasetMeta,
 }
 fn default_line_thickness() -> f64 {
     return 1.5;
 }
 #[derive(Clone, Debug, Deserialize)]
 pub struct Chart<C, Pt: Clone> {
-    pub datasets: Vec<DataPoint<Pt>>,
+    pub datasets: Vec<Dataset<Pt>>,
 
     #[serde(flatten)]
     pub extra: C,
@@ -48,7 +48,7 @@ pub trait ChartType: Clone {
     const NAME: &'static str;
     fn render_datasets<R: RenderContext>(
         &self,
-        datasets: &Vec<DataPoint<Self::DataPoint>>,
+        datasets: &Vec<Dataset<Self::DataPoint>>,
         area: &Rect,
         label_font: &FontInfo,
         r: &mut R,

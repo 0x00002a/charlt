@@ -140,6 +140,8 @@ pub enum Error {
     EmptyDataset,
     #[error("piet error: {0}")]
     Piet(piet::Error),
+    #[error("not enough space, need at least {0} got {0}")]
+    NotEnoughSpace(f64, f64),
 }
 unsafe impl Send for Error {}
 unsafe impl Sync for Error {}

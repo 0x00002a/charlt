@@ -1,8 +1,9 @@
-use std::f64::consts::PI;
+use std::{f64::consts::PI, rc::Rc};
 
 use kurbo::{Affine, BezPath, Line, Point, Rect, Shape, Size, TranslateScale, Vec2};
 use piet::{RenderContext, Text, TextAlignment, TextLayout, TextLayoutBuilder};
 use rlua::{FromLua, Value};
+use scopeguard::defer;
 use serde::Deserialize;
 
 use crate::{
@@ -10,7 +11,7 @@ use crate::{
     utils::RoundMul,
 };
 
-use super::{Chart, ChartType, DataPoint, DataPointMeta};
+use super::{Chart, ChartType, Dataset, DatasetMeta};
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(tag = "type")]
@@ -43,7 +44,59 @@ impl From<XYPoint<f64>> for kurbo::Point {
 
 type BarPoint = f64;
 #[derive(Clone, Copy, Debug, Deserialize)]
-pub struct BarChart {}
+pub struct BarChart {
+    spacing: Option<f64>,
+}
+type Result<T> = std::result::Result<T, render::Error>;
+
+impl BarChart {
+    fn spacing(&self) -> f64 {
+        self.spacing.to_owned().unwrap_or(10.0)
+    }
+    fn calc_blocks(
+        &self,
+        datasets: &Vec<super::Dataset<f64>>,
+        area: &Rect,
+    ) -> Result<Vec<(DatasetMeta, Vec<Rect>)>> {
+        let nb_blocks = datasets.len() as f64;
+        let free_width = area.width() - nb_blocks * self.spacing();
+        if free_width < nb_blocks {
+            return Err(render::Error::NotEnoughSpace(nb_blocks, free_width));
+        }
+        let block_w = free_width / nb_blocks;
+        let max_val = datasets
+            .iter()
+            .flat_map(|dset| dset.values.iter().map(|v| v.ceil() as u64))
+            .max()
+            .unwrap() as f64;
+        let block_h = |v| (area.height() / max_val) * v;
+        let block_gap = block_w * nb_blocks + self.spacing();
+        let blocks = datasets
+            .iter()
+            .enumerate()
+            .map(|(set_num, dset)| {
+                (
+                    dset.extra.clone(),
+                    dset.values
+                        .iter()
+                        .enumerate()
+                        .map(|(i, v)| {
+                            let start_x = i as f64 * block_gap + set_num as f64 * block_w;
+                            let start_y = area.min_y();
+                            Rect::new(
+                                start_x,
+                                start_y,
+                                start_x + block_w,
+                                start_y + block_h(v.to_owned()),
+                            )
+                        })
+                        .collect::<Vec<_>>(),
+                )
+            })
+            .collect();
+        Ok(blocks)
+    }
+}
 impl ChartType for BarChart {
     type DataPoint = BarPoint;
 
@@ -51,12 +104,25 @@ impl ChartType for BarChart {
 
     fn render_datasets<R: RenderContext>(
         &self,
-        datasets: &Vec<super::DataPoint<Self::DataPoint>>,
+        datasets: &Vec<super::Dataset<Self::DataPoint>>,
         area: &kurbo::Rect,
-        _: &FontInfo,
-        _: &mut R,
-    ) -> Result<(), crate::render::Error> {
-        todo!()
+        lbl_font: &FontInfo,
+        r: &mut R,
+    ) -> Result<()> {
+        r.with_restore(|r| {
+            r.transform(Affine::FLIP_Y);
+
+            if datasets.len() == 0 {
+                return Ok(());
+            }
+            for (c, blocks) in self.calc_blocks(datasets, area)? {
+                let b = r.solid_brush(c.colour.into());
+                for block in blocks {
+                    r.fill(block, &b);
+                }
+            }
+            Ok(())
+        })?
     }
 }
 
@@ -108,11 +174,11 @@ impl XYScatter {
         lbl_font: &FontInfo,
         origin: &Point,
         r: &mut R,
-    ) -> Result<(f64, f64), render::Error> {
+    ) -> Result<(f64, f64)> {
         let margin = self.margin();
         let mut build_texts = |steps: &Vec<u64>,
                                f: &dyn Fn(f64) -> TextInfo|
-         -> Result<Vec<Size>, render::Error> {
+         -> Result<Vec<Size>> {
             steps
                 .iter()
                 .map(|coord| {
@@ -147,9 +213,9 @@ impl XYScatter {
     }
     fn calc_paths(
         &self,
-        datasets: &Vec<DataPoint<XYPoint<f64>>>,
+        datasets: &Vec<Dataset<XYPoint<f64>>>,
         area: &Rect,
-    ) -> Result<Vec<(DataPointMeta, BezPath)>, render::Error> {
+    ) -> Result<Vec<(DatasetMeta, BezPath)>> {
         let paths: Vec<_> = datasets
             .iter()
             .map(|point| {
@@ -199,11 +265,11 @@ impl XYScatter {
     }
     fn render_into<R: RenderContext>(
         &self,
-        datasets: &Vec<DataPoint<XYPoint<f64>>>,
+        datasets: &Vec<Dataset<XYPoint<f64>>>,
         area: &kurbo::Rect,
         label_font: &FontInfo,
         r: &mut R,
-    ) -> Result<(), render::Error> {
+    ) -> Result<()> {
         let steps = self.calc_steps(area);
         let steps_x = steps.x.clone();
         let steps_y = steps.y.clone();
@@ -290,11 +356,11 @@ impl ChartType for XYScatter {
 
     fn render_datasets<R: RenderContext>(
         &self,
-        datasets: &Vec<DataPoint<XYPoint<f64>>>,
+        datasets: &Vec<Dataset<XYPoint<f64>>>,
         area: &kurbo::Rect,
         label_font: &FontInfo,
         r: &mut R,
-    ) -> Result<(), render::Error> {
+    ) -> Result<()> {
         let fam = label_font.family.to_owned().to_family(r)?;
         let margin = Into::<Point>::into(self.margin()) + (20.0, 20.0);
         let char_dims = r
@@ -317,14 +383,14 @@ impl ChartType for XYScatter {
 #[cfg(test)]
 mod tests {
 
-    use crate::{chart::DataPoint, render::Colour};
+    use crate::{chart::Dataset, render::Colour};
 
     use super::*;
 
-    fn to_dataset<T: Clone>(vs: &Vec<Vec<T>>) -> Vec<DataPoint<T>> {
+    fn to_dataset<T: Clone>(vs: &Vec<Vec<T>>) -> Vec<Dataset<T>> {
         vs.iter()
-            .map(|p| DataPoint {
-                extra: DataPointMeta {
+            .map(|p| Dataset {
+                extra: DatasetMeta {
                     name: "testpt".to_owned(),
                     colour: Colour::RGB(0, 0, 0),
                     thickness: 0.0,

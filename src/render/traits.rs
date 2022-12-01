@@ -11,6 +11,16 @@ pub trait Render {
     fn render<P: RenderContext>(&self, area: &Rect, r: &mut P) -> Result<(), Self::Error>;
 }
 
+struct ScopedSave<'a, R: RenderContext + 'a> {
+    r: &'a mut R,
+}
+
+impl<'a, R: RenderContext> Drop for ScopedSave<'a, R> {
+    fn drop(&mut self) {
+        self.r.restore().unwrap();
+    }
+}
+
 pub trait RenderContextExt {
     type TextLayout: TextLayout;
     fn render_text<P: Into<Point>>(
@@ -20,6 +30,7 @@ pub trait RenderContextExt {
     ) -> Result<Self::TextLayout, Error>;
     fn text_bounds(&mut self, txt: &TextInfo) -> Result<Size, Error>;
     fn make_text_layout(&mut self, txt: &TextInfo) -> Result<Self::TextLayout, Error>;
+    fn with_restore<F: FnOnce(&mut Self) -> R, R>(&mut self, f: F) -> Result<R, Error>;
 }
 
 impl<R: RenderContext> RenderContextExt for R {
@@ -66,5 +77,12 @@ impl<R: RenderContext> RenderContextExt for R {
             Err(e) => Err(Error::TextBuild(e)),
         })?;
         Ok(txt)
+    }
+
+    fn with_restore<F: FnOnce(&mut Self) -> Ret, Ret>(&mut self, f: F) -> Result<Ret, Error> {
+        self.save()?;
+        let r = f(self);
+        self.restore()?;
+        Ok(r)
     }
 }
