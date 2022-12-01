@@ -1,7 +1,7 @@
 mod charts;
 mod fromlua;
 mod render;
-use font_kit::font::{self, Font};
+use kurbo::Rect;
 use piet::RenderContext;
 use serde::{
     de::{self, DeserializeOwned},
@@ -14,7 +14,7 @@ pub use fromlua::*;
 pub use render::*;
 
 use crate::{
-    render::{Colour, Entity},
+    render::{Colour, FontInfo},
     utils::Holds,
 };
 #[derive(Clone, Debug, Deserialize)]
@@ -30,7 +30,7 @@ pub struct Chart<C, Pt: Clone> {
     #[serde(flatten)]
     pub extra: C,
 
-    pub font: Option<String>,
+    pub font: Option<FontInfo>,
 }
 pub trait ChartType: Clone {
     type DataPoint: Clone;
@@ -38,8 +38,8 @@ pub trait ChartType: Clone {
     fn render_datasets<R: RenderContext>(
         &self,
         datasets: &Vec<DataPoint<Self::DataPoint>>,
-        area: &geo::Rect,
-        label_font: &Font,
+        area: &Rect,
+        label_font: &FontInfo,
         r: &mut R,
     );
 }

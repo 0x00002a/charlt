@@ -12,7 +12,12 @@ use super::*;
 impl<C: ChartType> Render for Chart<C, C::DataPoint> {
     type Error = render::Error;
     fn render<P: RenderContext>(&self, area: &Rect, r: &mut P) -> Result<(), render::Error> {
-        Ok(self.extra.render_datasets(&self.datasets, area, &font, r))
+        Ok(self.extra.render_datasets(
+            &self.datasets,
+            area,
+            &self.font.clone().unwrap_or_default(),
+            r,
+        ))
     }
 }
 impl Render for Charts {

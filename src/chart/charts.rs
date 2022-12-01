@@ -4,7 +4,6 @@ use rlua::{FromLua, Value};
 use serde::Deserialize;
 
 use crate::render::{colours, FontInfo, RenderContextExt, TextInfo};
-use crate::render::{Entity, Render};
 
 use super::{Chart, ChartType, DataPoint};
 
@@ -51,7 +50,7 @@ impl ChartType for BarChart {
         area: &kurbo::Rect,
         _: &FontInfo,
         _: &mut R,
-    ) -> Vec<Entity> {
+    ) {
         todo!()
     }
 }
@@ -78,7 +77,8 @@ fn mk_grids<R: RenderContext>(
         for pt in steps {
             let (x, y) = f(pt.clone() as f64);
             let line = Line::new(x, y);
-            r.stroke(line, &r.solid_brush(piet::Color::GRAY), line_w);
+            let b = r.solid_brush(piet::Color::GRAY);
+            r.stroke(line, &b, line_w);
         }
     }
     if grid.x {
@@ -97,17 +97,17 @@ impl XYScatter {
         r: &mut R,
     ) {
         let margin = 5.0;
-        for x in steps.x {
+        for x in &steps.x {
             let y = xylines.y;
             let content = x.to_string();
-            let pt = Point::new(x as f64 - margin, y as f64);
+            let pt = Point::new(x.to_owned() as f64 - margin, y as f64);
             r.render_text(pt, &TextInfo::new(content).font(lbl_font.clone()));
         }
 
-        for y in steps.y {
+        for y in &steps.y {
             let x = xylines.x;
             let content = y.to_string();
-            let pt = Point::new(x, xylines.y - y as f64 + margin);
+            let pt = Point::new(x, xylines.y - y.to_owned() as f64 + margin);
             r.render_text(pt, &TextInfo::new(content).font(lbl_font.clone()));
         }
     }
@@ -128,8 +128,8 @@ impl ChartType for XYScatter {
             .iter()
             .map(|point| {
                 (
-                    point.colour,
-                    point.values.iter().fold(BezPath::new(), |path, pt| {
+                    point.colour.to_owned(),
+                    point.values.iter().fold(BezPath::new(), |mut path, pt| {
                         path.line_to(pt.clone());
                         path
                     }),
@@ -146,7 +146,7 @@ impl ChartType for XYScatter {
 
         let paths: Vec<_> = paths
             .into_iter()
-            .map(|(c, p)| {
+            .map(|(c, mut p)| {
                 p.apply_affine(Affine::FLIP_Y);
                 (c, p)
             })
@@ -154,7 +154,8 @@ impl ChartType for XYScatter {
 
         let line_w = 3.0;
         for (c, p) in paths {
-            r.stroke(p, &r.solid_brush(c.into()), line_w);
+            let b = r.solid_brush(c.into());
+            r.stroke(p, &b, line_w);
         }
         let lbl_margin = 10.0;
         r.render_text(

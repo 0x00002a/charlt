@@ -1,13 +1,8 @@
-mod fromlua;
 mod traits;
 
-use std::borrow::Borrow;
-
-pub use fromlua::*;
-use geo::{BoundingRect, Coord, Rect};
+use piet::FontFamily;
 use serde::Deserialize;
 pub use traits::*;
-pub mod svg;
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(untagged)]
@@ -26,7 +21,7 @@ impl From<Colour> for piet::Color {
     fn from(c: Colour) -> Self {
         match c {
             Colour::RGB(r, g, b) => Self::rgb8(r, g, b),
-            Colour::HEX(h) => Self::from_hex_str(&h),
+            Colour::HEX(h) => Self::from_hex_str(&h).unwrap(),
         }
     }
 }
@@ -40,8 +35,17 @@ impl From<piet::Color> for Colour {
 #[derive(Deserialize, Debug, Clone)]
 pub struct FontInfo {
     family: String,
-    size: u8,
+    size: f64,
 }
+impl Default for FontInfo {
+    fn default() -> Self {
+        Self {
+            family: FontFamily::SYSTEM_UI.name().to_owned(),
+            size: 12.0,
+        }
+    }
+}
+
 pub struct TextInfo {
     font: Option<FontInfo>,
     content: String,
@@ -56,58 +60,22 @@ impl TextInfo {
             colour: None,
         }
     }
-    pub fn colour<C: Into<piet::Color>>(self, c: C) -> Self {
+    pub fn colour<C: Into<piet::Color>>(mut self, c: C) -> Self {
         self.colour = Some(c.into());
         self
     }
-    pub fn font(self, f: FontInfo) -> Self {
+    pub fn font(mut self, f: FontInfo) -> Self {
         self.font = Some(f);
         self
     }
 }
 
-pub enum Shape {
-    Geo(geo::Geometry),
-    Text {
-        pos: Coord,
-        content: String,
-        rotation: Option<f64>,
-        font: Option<FontInfo>,
-    },
-}
-
-impl Shape {
-    fn text<P: Into<Coord>, C: ToString>(pos: P, content: C, font: Option<FontInfo>) -> Self {
-        Shape::Text {
-            pos: pos.into(),
-            content: content.to_string(),
-            rotation: None,
-            font: font,
-        }
-    }
-}
-
-impl From<geo::Geometry> for Shape {
-    fn from(g: geo::Geometry) -> Self {
-        Shape::Geo(g)
-    }
-}
-
-pub struct Entity {
-    pub colour: Colour,
-    pub shape: Shape,
-}
-
-impl Entity {
-    pub fn new(colour: Colour, shape: Shape) -> Self {
-        Self { colour, shape }
-    }
-}
-
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("not enough space to render")]
-    FontLoading(anyhow::Error),
+    #[error("failed to load font {0}")]
+    FontLoading(String),
+    #[error("failed to build text {0}")]
+    TextBuild(piet::Error),
 }
 
 impl Colour {

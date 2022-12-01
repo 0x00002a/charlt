@@ -2,8 +2,8 @@ use std::io::{BufReader, BufWriter};
 
 use anyhow::Result;
 use clap::Parser;
-use geo::Rect;
-use render::{Draw, Render};
+use kurbo::{Rect, Size};
+use render::Render;
 
 mod api;
 mod chart;
@@ -31,13 +31,13 @@ fn main() -> Result<()> {
     let mut input = BufReader::new(std::fs::File::open(args.input)?);
     let chart = api::load_chart(&mut input)?;
 
-    let mut output = BufWriter::new(std::fs::File::create(args.output)?);
-    let mut out_svg = render::svg::Svg::new(args.width, args.height);
-    out_svg.draw_all(chart.render(&Rect::new(
-        (0.0, 0.0),
-        (args.width as f64, args.height as f64),
-    ))?);
-    out_svg.dump(&mut output)?;
-
+    let output = BufWriter::new(std::fs::File::create(args.output)?);
+    let size = Size::new(args.width as f64, args.height as f64);
+    let mut svg_render = piet_svg::RenderContext::new(size.clone());
+    chart.render(
+        &Rect::from_points((0.0, 0.0), (size.width, size.height)),
+        &mut svg_render,
+    );
+    svg_render.write(output)?;
     Ok(())
 }
