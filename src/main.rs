@@ -2,7 +2,7 @@ use std::io::{BufReader, BufWriter};
 
 use anyhow::Result;
 use clap::Parser;
-use kurbo::{Rect, Size};
+use kurbo::{Rect, Size, TranslateScale};
 use render::Render;
 
 mod api;
@@ -33,7 +33,7 @@ fn main() -> Result<()> {
 
     let output = BufWriter::new(std::fs::File::create(args.output)?);
     let size = Size::new(args.width as f64, args.height as f64);
-    let mut svg_render = piet_svg::RenderContext::new(size.clone());
+    let mut svg_render = piet_svg::RenderContext::new(size.clone() * 0.5);
     chart
         .render(
             &Rect::from_points((0.0, 0.0), (size.width, size.height)),

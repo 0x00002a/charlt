@@ -1,3 +1,5 @@
+use std::f64::consts::PI;
+
 use kurbo::{Affine, BezPath, Line, Point, Rect, Shape, TranslateScale};
 use piet::{RenderContext, Text, TextLayout, TextLayoutBuilder};
 use rlua::{FromLua, Value};
@@ -116,7 +118,7 @@ impl XYScatter {
                     .collect()
             };
         let texts_x = build_texts(&steps.x, &|x| Point::new(x - margin, xylines.y))?;
-        let texts_y = build_texts(&steps.x, &|y| Point::new(xylines.x, xylines.y - y + margin))?;
+        let texts_y = build_texts(&steps.y, &|y| Point::new(xylines.x, xylines.y - y + margin))?;
         let y_offset = texts_y
             .iter()
             .map(|(_, t)| t.size().height.ceil() as u64)
@@ -204,10 +206,16 @@ impl ChartType for XYScatter {
             y: area.height(),
         };
         let (x_offset, y_offset) = self.mk_labels(&steps, &xylines, &label_font, r)?;
+        r.save()?;
+        let render_pt = area.center() + (x_offset - area.center().x, 0.0);
+        r.transform(Affine::translate(render_pt.to_vec2()));
+        r.transform(Affine::rotate(-PI / 2.0));
+        r.transform(Affine::translate(render_pt.to_vec2() * -1.0));
         r.render_text(
-            area.center() + (x_offset - area.center().x, 0.0),
+            render_pt,
             &TextInfo::new(self.axis.y.clone()).font(label_font.clone()),
         )?;
+        r.restore()?;
 
         r.render_text(
             (area.center().x, area.max_y() + y_offset).into(),
