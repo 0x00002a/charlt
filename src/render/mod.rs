@@ -118,6 +118,9 @@ pub enum Error {
     #[error("piet error: {0}")]
     Piet(piet::Error),
 }
+unsafe impl Send for Error {}
+unsafe impl Sync for Error {}
+
 impl From<piet::Error> for Error {
     fn from(e: piet::Error) -> Self {
         Self::Piet(e)
