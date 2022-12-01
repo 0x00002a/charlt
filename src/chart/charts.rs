@@ -64,21 +64,13 @@ pub struct XYScatter {
     pub grid: Option<XYPoint<bool>>,
 }
 
-fn mk_grids<R: RenderContext>(
-    grid: &XYPoint<bool>,
-    steps: &XYPoint<Vec<u64>>,
-    bounds: &Rect,
-    r: &mut R,
-) {
+fn mk_grids(grid: &XYPoint<bool>, steps: &XYPoint<Vec<u64>>, bounds: &Rect) -> Vec<Line> {
+    let mut out = Vec::new();
     let mut do_iter = |steps: &Vec<u64>, f: &dyn Fn(f64) -> ((f64, f64), (f64, f64))| {
-        let line_w = 1.0;
         for pt in steps {
             let (x, y) = f(pt.to_owned() as f64);
             let line = Line::new(x, y);
-            println!("bounds: {}", bounds);
-            println!("line: {} -> {}", Point::from(x), Point::from(y));
-            let b = r.solid_brush(piet::Color::GRAY);
-            r.stroke(line, &b, line_w);
+            out.push(line);
         }
     };
     if grid.x {
@@ -92,11 +84,12 @@ fn mk_grids<R: RenderContext>(
     if grid.y {
         do_iter(&steps.y, &|y| {
             (
-                (bounds.min_x(), y + bounds.min_y()),
-                (bounds.max_x(), y + bounds.min_y()),
+                (bounds.min_x(), bounds.max_y() - y),
+                (bounds.max_x(), bounds.max_y() - y),
             )
         });
     }
+    out
 }
 impl XYScatter {
     fn mk_labels<R: RenderContext>(
@@ -245,12 +238,14 @@ impl XYScatter {
             .height;
         r.restore()?;
 
-        mk_grids(
+        for line in mk_grids(
             &self.grid.clone().unwrap_or(XYPoint { x: false, y: true }),
             &steps,
             area,
-            r,
-        );
+        ) {
+            let b = r.solid_brush(piet::Color::GRAY);
+            r.stroke(line, &b, 1.0);
+        }
 
         for (c, p) in self.calc_paths(datasets, area)? {
             let b = r.solid_brush(c.into());
@@ -306,7 +301,29 @@ mod tests {
             .collect()
     }
     #[test]
-    fn test_paths_with_offset() {
+    fn grids_with_uneven_offset() {
+        let steps = XYPoint::new(vec![0, 100, 200], vec![0, 10, 20]);
+        let areas = vec![
+            Rect::new(0.0, 0.0, 200.0, 20.0),
+            Rect::new(30.0, 22.0, 250.0, 47.0),
+        ];
+        for area in areas {
+            let grid_draw = XYPoint::new(false, true);
+            let grid = mk_grids(&grid_draw, &steps, &area);
+            for line in &grid {
+                assert_eq!(line.p0.y, line.p1.y);
+            }
+            let botline = Line::new((area.min_x(), area.max_y()), (area.max_x(), area.max_y()));
+            assert!(
+                grid.contains(&botline),
+                "grid doesn't have bottom line {:?}: {:?}",
+                botline,
+                grid
+            );
+        }
+    }
+    #[test]
+    fn paths_with_offset() {
         let datasets = to_dataset(&vec![vec![
             XYPoint::new(0.0, 0.0),
             XYPoint::new(10.0, 500.0),
