@@ -87,6 +87,7 @@ pub struct TextInfo {
     font: Option<FontInfo>,
     content: String,
     colour: Option<piet::Color>,
+    alignment: Option<piet::TextAlignment>,
 }
 
 impl TextInfo {
@@ -95,6 +96,7 @@ impl TextInfo {
             content,
             font: None,
             colour: None,
+            alignment: None,
         }
     }
     pub fn colour<C: Into<piet::Color>>(mut self, c: C) -> Self {
@@ -103,6 +105,10 @@ impl TextInfo {
     }
     pub fn font(mut self, f: FontInfo) -> Self {
         self.font = Some(f);
+        self
+    }
+    pub fn alignment(mut self, a: piet::TextAlignment) -> Self {
+        self.alignment = Some(a);
         self
     }
 }

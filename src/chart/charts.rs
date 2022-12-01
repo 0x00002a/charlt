@@ -1,7 +1,7 @@
 use std::f64::consts::PI;
 
-use kurbo::{Affine, BezPath, Line, Point, Rect, Shape, TranslateScale};
-use piet::{RenderContext, Text, TextLayout, TextLayoutBuilder};
+use kurbo::{Affine, BezPath, Line, Point, Rect, Shape, Size, TranslateScale, Vec2};
+use piet::{RenderContext, Text, TextAlignment, TextLayout, TextLayoutBuilder};
 use rlua::{FromLua, Value};
 use serde::Deserialize;
 
@@ -67,27 +67,34 @@ pub struct XYScatter {
 fn mk_grids<R: RenderContext>(
     grid: &XYPoint<bool>,
     steps: &XYPoint<Vec<u64>>,
-    bounds: &XYPoint<(f64, f64)>,
+    bounds: &Rect,
     r: &mut R,
 ) {
-    fn do_iter<R: RenderContext, F: Fn(f64) -> ((f64, f64), (f64, f64))>(
-        steps: &Vec<u64>,
-        f: F,
-        r: &mut R,
-    ) {
-        let line_w = 2.0;
+    let mut do_iter = |steps: &Vec<u64>, f: &dyn Fn(f64) -> ((f64, f64), (f64, f64))| {
+        let line_w = 1.0;
         for pt in steps {
-            let (x, y) = f(pt.clone() as f64);
+            let (x, y) = f(pt.to_owned() as f64);
             let line = Line::new(x, y);
+            println!("line: {} -> {}", line);
             let b = r.solid_brush(piet::Color::GRAY);
             r.stroke(line, &b, line_w);
         }
-    }
+    };
     if grid.x {
-        do_iter(&steps.x, |x| ((x, bounds.y.0), (x, bounds.y.1)), r);
+        do_iter(&steps.x, &|x| {
+            (
+                (x + bounds.min_x(), bounds.min_y()),
+                (x + bounds.min_x(), bounds.max_y()),
+            )
+        });
     }
     if grid.y {
-        do_iter(&steps.y, |y| ((bounds.x.0, y), (bounds.x.1, y)), r);
+        do_iter(&steps.y, &|y| {
+            (
+                (bounds.min_x(), y + bounds.min_y()),
+                (bounds.max_x(), y + bounds.min_y()),
+            )
+        });
     }
 }
 impl XYScatter {
@@ -96,51 +103,52 @@ impl XYScatter {
         steps: &XYPoint<Vec<u64>>,
         xylines: &XYPoint<f64>,
         lbl_font: &FontInfo,
+        origin: &Point,
         r: &mut R,
     ) -> Result<(f64, f64), render::Error> {
-        type TVal<R> = (Point, <R as RenderContext>::TextLayout);
-        let margin = 5.0;
-        let mut build_texts =
-            |steps: &Vec<u64>, f: &dyn Fn(f64) -> Point| -> Result<Vec<TVal<R>>, render::Error> {
-                steps
-                    .iter()
-                    .map(|coord| {
-                        let content = coord.to_string();
-                        let pt: Point = f(coord.to_owned() as f64);
-                        Ok((
-                            pt,
-                            r.text()
-                                .new_text_layout(content)
-                                .font(lbl_font.to_owned().family.to_family(r)?, lbl_font.size)
-                                .build()?,
-                        ))
-                    })
-                    .collect()
-            };
-        let texts_x = build_texts(&steps.x, &|x| Point::new(x - margin, xylines.y))?;
-        let texts_y = build_texts(&steps.y, &|y| Point::new(xylines.x, xylines.y - y + margin))?;
-        let y_offset = texts_y
-            .iter()
-            .map(|(_, t)| t.size().height.ceil() as u64)
-            .max()
-            .unwrap();
-        let x_offset = texts_x
-            .iter()
-            .map(|(_, t)| t.size().width.ceil() as u64)
-            .max()
-            .unwrap();
-        for (pt, txt) in texts_x.into_iter().chain(texts_y.into_iter()) {
-            r.draw_text(&txt, pt);
-        }
+        let margin = 0.0;
+        let mut build_texts = |steps: &Vec<u64>,
+                               f: &dyn Fn(f64, &mut R) -> Result<Point, render::Error>|
+         -> Result<Vec<Size>, render::Error> {
+            steps
+                .iter()
+                .map(|coord| {
+                    let content = coord.to_string();
+                    let pt: Vec2 = f(coord.to_owned() as f64, r)?.to_vec2();
+                    let s = r
+                        .render_text(
+                            pt.to_point(),
+                            &TextInfo::new(content)
+                                .font(lbl_font.to_owned())
+                                .alignment(TextAlignment::Center),
+                        )?
+                        .size();
+                    Ok(s)
+                })
+                .collect()
+        };
+        let x_offset = build_texts(&steps.x, &|x, _| {
+            Ok(Point::new(x - margin + origin.x, xylines.y))
+        })?
+        .into_iter()
+        .map(|s| s.height.ceil() as u64)
+        .max()
+        .unwrap();
+        let y_offset = build_texts(&steps.y, &|y, r| {
+            Ok(Point::new(
+                xylines.x
+                    - r.text_bounds(&TextInfo::new(y.to_string()).font(lbl_font.to_owned()))?
+                        .width,
+                xylines.y - y,
+            ))
+        })?
+        .into_iter()
+        .map(|s| s.width.ceil() as u64)
+        .max()
+        .unwrap();
         Ok((-(x_offset as f64) - 1.0, y_offset as f64 + 1.0))
     }
-}
-
-impl ChartType for XYScatter {
-    type DataPoint = XYPoint<f64>;
-    const NAME: &'static str = "xy-scatter";
-
-    fn render_datasets<R: RenderContext>(
+    fn render_into<R: RenderContext>(
         &self,
         datasets: &Vec<DataPoint<XYPoint<f64>>>,
         area: &kurbo::Rect,
@@ -178,22 +186,18 @@ impl ChartType for XYScatter {
                 p.apply_affine(Affine::scale_non_uniform(scale_x, scale_y));
                 (
                     c,
-                    TranslateScale::translate((0.0, area.height()).into()) * p,
+                    TranslateScale::translate(area.center() - p.bounding_box().center()) * p,
                 )
             })
             .collect();
 
         let line_w = 3.0;
-        for (c, p) in paths {
-            let b = r.solid_brush(c.into());
-            r.stroke(p, &b, line_w);
-        }
 
         let (step_x, step_y) = (self.steps.x as f64, self.steps.y as f64);
-        let steps_y: Vec<_> = (0..area.height() as u64 + step_y as u64)
+        let steps_y: Vec<_> = (0..(area.height() + step_y) as u64)
             .step_by(step_y as usize)
             .collect();
-        let steps_x: Vec<_> = (0..area.width() as u64 + step_x as u64)
+        let steps_x: Vec<_> = (0..(area.width() + step_x) as u64)
             .step_by(step_x as usize)
             .collect();
 
@@ -202,35 +206,79 @@ impl ChartType for XYScatter {
             y: steps_y,
         };
         let xylines = XYPoint {
-            x: 0.0,
-            y: area.height(),
+            x: area.min_x(),
+            y: area.max_y(),
         };
-        let (x_offset, y_offset) = self.mk_labels(&steps, &xylines, &label_font, r)?;
+        let (x_offset, y_offset) = self.mk_labels(
+            &steps,
+            &xylines,
+            &label_font,
+            &Point::new(area.min_x(), area.min_y()),
+            r,
+        )?;
+
+        let _ = r
+            .render_text(
+                (area.center().x, area.max_y() + y_offset).into(),
+                &TextInfo::new(self.axis.y.to_owned()),
+            )?
+            .size()
+            .width;
         r.save()?;
         let render_pt = area.center() + (x_offset - area.center().x, 0.0);
         r.transform(Affine::translate(render_pt.to_vec2()));
         r.transform(Affine::rotate(-PI / 2.0));
         r.transform(Affine::translate(render_pt.to_vec2() * -1.0));
-        r.render_text(
-            render_pt,
-            &TextInfo::new(self.axis.y.clone()).font(label_font.clone()),
-        )?;
+        let _ = r
+            .render_text(
+                render_pt,
+                &TextInfo::new(self.axis.x.to_owned()).font(label_font.to_owned()),
+            )?
+            .size()
+            .height;
         r.restore()?;
 
-        r.render_text(
-            (area.center().x, area.max_y() + y_offset).into(),
-            &TextInfo::new(self.axis.x.clone()).font(label_font.clone()),
-        )?;
         mk_grids(
             &self.grid.clone().unwrap_or(XYPoint { x: false, y: true }),
             &steps,
-            &XYPoint {
-                x: (0.0, area.width()),
-                y: (0.0, area.height()),
-            },
+            area,
             r,
         );
+
+        for (c, p) in paths {
+            let b = r.solid_brush(c.into());
+            r.stroke(p, &b, line_w);
+        }
         Ok(())
+    }
+}
+
+impl ChartType for XYScatter {
+    type DataPoint = XYPoint<f64>;
+    const NAME: &'static str = "xy-scatter";
+
+    fn render_datasets<R: RenderContext>(
+        &self,
+        datasets: &Vec<DataPoint<XYPoint<f64>>>,
+        area: &kurbo::Rect,
+        label_font: &FontInfo,
+        r: &mut R,
+    ) -> Result<(), render::Error> {
+        let fam = label_font.family.to_owned().to_family(r)?;
+        let margin = 20.0;
+        let char_dims = r
+            .text()
+            .new_text_layout("X")
+            .font(fam, label_font.size)
+            .build()?
+            .size();
+        let inner = Rect::new(
+            area.x0 + char_dims.height + char_dims.width * 4.0 + margin,
+            area.y0 + margin,
+            area.x1 - margin,
+            area.y1 - char_dims.height * 3.0 - margin,
+        );
+        self.render_into(datasets, &inner, label_font, r)
     }
 }
 
