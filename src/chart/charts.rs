@@ -95,22 +95,42 @@ impl XYScatter {
         xylines: &XYPoint<f64>,
         lbl_font: &FontInfo,
         r: &mut R,
-    ) -> Result<(), render::Error> {
+    ) -> Result<(f64, f64), render::Error> {
+        type TVal<R> = (Point, <R as RenderContext>::TextLayout);
         let margin = 5.0;
-        for x in &steps.x {
-            let y = xylines.y;
-            let content = x.to_string();
-            let pt = Point::new(x.to_owned() as f64 - margin, y as f64);
-            r.render_text(pt, &TextInfo::new(content).font(lbl_font.clone()))?;
+        let mut build_texts =
+            |steps: &Vec<u64>, f: &dyn Fn(f64) -> Point| -> Result<Vec<TVal<R>>, render::Error> {
+                steps
+                    .iter()
+                    .map(|coord| {
+                        let content = coord.to_string();
+                        let pt: Point = f(coord.to_owned() as f64);
+                        Ok((
+                            pt,
+                            r.text()
+                                .new_text_layout(content)
+                                .font(lbl_font.to_owned().family.to_family(r)?, lbl_font.size)
+                                .build()?,
+                        ))
+                    })
+                    .collect()
+            };
+        let texts_x = build_texts(&steps.x, &|x| Point::new(x - margin, xylines.y))?;
+        let texts_y = build_texts(&steps.x, &|y| Point::new(xylines.x, xylines.y - y + margin))?;
+        let y_offset = texts_y
+            .iter()
+            .map(|(_, t)| t.size().height.ceil() as u64)
+            .max()
+            .unwrap();
+        let x_offset = texts_x
+            .iter()
+            .map(|(_, t)| t.size().width.ceil() as u64)
+            .max()
+            .unwrap();
+        for (pt, txt) in texts_x.into_iter().chain(texts_y.into_iter()) {
+            r.draw_text(&txt, pt);
         }
-
-        for y in &steps.y {
-            let x = xylines.x;
-            let content = y.to_string();
-            let pt = Point::new(x, xylines.y - y.to_owned() as f64 + margin);
-            r.render_text(pt, &TextInfo::new(content).font(lbl_font.clone()))?;
-        }
-        Ok(())
+        Ok((-(x_offset as f64) - 1.0, y_offset as f64 + 1.0))
     }
 }
 
@@ -131,7 +151,7 @@ impl ChartType for XYScatter {
                 (
                     point.colour.to_owned(),
                     point.values.iter().fold(BezPath::new(), |mut path, pt| {
-                        if path.is_empty() {
+                        if path.elements().len() == 0 {
                             path.move_to(pt.clone())
                         } else {
                             path.line_to(pt.clone());
@@ -145,7 +165,7 @@ impl ChartType for XYScatter {
             .iter()
             .map(|(_, b)| b.bounding_box())
             .reduce(|b, r| b.union(r))
-            .unwrap_or(Rect::new(0.0, 0.0, 0.0, 0.0));
+            .ok_or(render::Error::EmptyDataset)?;
         let scale_x = area.width() / bounds.max_x();
         let scale_y = area.height() / bounds.max_y();
 
@@ -153,7 +173,11 @@ impl ChartType for XYScatter {
             .into_iter()
             .map(|(c, mut p)| {
                 p.apply_affine(Affine::FLIP_Y);
-                (c, p)
+                p.apply_affine(Affine::scale_non_uniform(scale_x, scale_y));
+                (
+                    c,
+                    TranslateScale::translate((0.0, area.height()).into()) * p,
+                )
             })
             .collect();
 
@@ -162,16 +186,6 @@ impl ChartType for XYScatter {
             let b = r.solid_brush(c.into());
             r.stroke(p, &b, line_w);
         }
-        let lbl_margin = 10.0;
-        r.render_text(
-            area.center() + (-lbl_margin, area.center().y),
-            &TextInfo::new(self.axis.x.clone()).font(label_font.clone()),
-        )?;
-
-        r.render_text(
-            area.center() + (area.center().x, area.max_y() + lbl_margin),
-            &TextInfo::new(self.axis.x.clone()).font(label_font.clone()),
-        )?;
 
         let (step_x, step_y) = (self.steps.x as f64, self.steps.y as f64);
         let steps_y: Vec<_> = (0..area.height() as u64 + step_y as u64)
@@ -189,7 +203,16 @@ impl ChartType for XYScatter {
             x: 0.0,
             y: area.height(),
         };
-        self.mk_labels(&steps, &xylines, &label_font, r)?;
+        let (x_offset, y_offset) = self.mk_labels(&steps, &xylines, &label_font, r)?;
+        r.render_text(
+            area.center() + (x_offset - area.center().x, 0.0),
+            &TextInfo::new(self.axis.y.clone()).font(label_font.clone()),
+        )?;
+
+        r.render_text(
+            (area.center().x, area.max_y() + y_offset).into(),
+            &TextInfo::new(self.axis.x.clone()).font(label_font.clone()),
+        )?;
         mk_grids(
             &self.grid.clone().unwrap_or(XYPoint { x: false, y: true }),
             &steps,

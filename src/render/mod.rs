@@ -2,7 +2,7 @@ mod traits;
 
 use std::fmt::Display;
 
-use piet::FontFamily;
+use piet::{FontFamily, RenderContext, Text};
 use serde::Deserialize;
 pub use traits::*;
 
@@ -54,9 +54,18 @@ impl From<FontFamily> for FontType {
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct FontInfo {
-    family: FontType,
-    size: f64,
+    pub family: FontType,
+    pub size: f64,
 }
+impl FontType {
+    pub fn to_family<R: RenderContext>(self, r: &mut R) -> Result<FontFamily, Error> {
+        match self {
+            FontType::Family(f) => Ok(f),
+            FontType::Named(n) => r.text().font_family(&n).ok_or(Error::FontLoading(n)),
+        }
+    }
+}
+
 impl Default for FontInfo {
     fn default() -> Self {
         Self {
@@ -101,9 +110,18 @@ impl TextInfo {
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("failed to load font {0}")]
-    FontLoading(FontType),
+    FontLoading(String),
     #[error("failed to build text {0}")]
     TextBuild(piet::Error),
+    #[error("empty dataset")]
+    EmptyDataset,
+    #[error("piet error: {0}")]
+    Piet(piet::Error),
+}
+impl From<piet::Error> for Error {
+    fn from(e: piet::Error) -> Self {
+        Self::Piet(e)
+    }
 }
 
 impl Colour {

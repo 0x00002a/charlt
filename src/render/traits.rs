@@ -14,20 +14,12 @@ pub trait Render {
 pub trait RenderContextExt {
     fn render_text(&mut self, pt: kurbo::Point, info: &TextInfo) -> Result<(), Error>;
 }
+
 impl<R: RenderContext> RenderContextExt for R {
     fn render_text(&mut self, pt: kurbo::Point, info: &TextInfo) -> Result<(), Error> {
         let mut t = self.text().new_text_layout(info.content.to_owned());
         if let Some(f) = &info.font {
-            t = t.font(
-                match &f.family {
-                    super::FontType::Family(f) => f.clone(),
-                    super::FontType::Named(n) => self
-                        .text()
-                        .font_family(&n)
-                        .ok_or(Error::FontLoading(f.family.clone()))?,
-                },
-                f.size,
-            );
+            t = t.font(f.family.clone().to_family(self)?, f.size);
         }
         if let Some(c) = info.colour {
             t = t.text_color(c);
