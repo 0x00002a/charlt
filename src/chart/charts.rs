@@ -3,7 +3,7 @@ use piet::{RenderContext, Text, TextLayout, TextLayoutBuilder};
 use rlua::{FromLua, Value};
 use serde::Deserialize;
 
-use crate::render::{colours, FontInfo, RenderContextExt, TextInfo};
+use crate::render::{self, colours, FontInfo, RenderContextExt, TextInfo};
 
 use super::{Chart, ChartType, DataPoint};
 
@@ -50,7 +50,7 @@ impl ChartType for BarChart {
         area: &kurbo::Rect,
         _: &FontInfo,
         _: &mut R,
-    ) {
+    ) -> Result<(), crate::render::Error> {
         todo!()
     }
 }
@@ -95,21 +95,22 @@ impl XYScatter {
         xylines: &XYPoint<f64>,
         lbl_font: &FontInfo,
         r: &mut R,
-    ) {
+    ) -> Result<(), render::Error> {
         let margin = 5.0;
         for x in &steps.x {
             let y = xylines.y;
             let content = x.to_string();
             let pt = Point::new(x.to_owned() as f64 - margin, y as f64);
-            r.render_text(pt, &TextInfo::new(content).font(lbl_font.clone()));
+            r.render_text(pt, &TextInfo::new(content).font(lbl_font.clone()))?;
         }
 
         for y in &steps.y {
             let x = xylines.x;
             let content = y.to_string();
             let pt = Point::new(x, xylines.y - y.to_owned() as f64 + margin);
-            r.render_text(pt, &TextInfo::new(content).font(lbl_font.clone()));
+            r.render_text(pt, &TextInfo::new(content).font(lbl_font.clone()))?;
         }
+        Ok(())
     }
 }
 
@@ -123,14 +124,18 @@ impl ChartType for XYScatter {
         area: &kurbo::Rect,
         label_font: &FontInfo,
         r: &mut R,
-    ) {
+    ) -> Result<(), render::Error> {
         let paths: Vec<_> = datasets
             .iter()
             .map(|point| {
                 (
                     point.colour.to_owned(),
                     point.values.iter().fold(BezPath::new(), |mut path, pt| {
-                        path.line_to(pt.clone());
+                        if path.is_empty() {
+                            path.move_to(pt.clone())
+                        } else {
+                            path.line_to(pt.clone());
+                        }
                         path
                     }),
                 )
@@ -161,12 +166,12 @@ impl ChartType for XYScatter {
         r.render_text(
             area.center() + (-lbl_margin, area.center().y),
             &TextInfo::new(self.axis.x.clone()).font(label_font.clone()),
-        );
+        )?;
 
         r.render_text(
             area.center() + (area.center().x, area.max_y() + lbl_margin),
             &TextInfo::new(self.axis.x.clone()).font(label_font.clone()),
-        );
+        )?;
 
         let (step_x, step_y) = (self.steps.x as f64, self.steps.y as f64);
         let steps_y: Vec<_> = (0..area.height() as u64 + step_y as u64)
@@ -184,7 +189,7 @@ impl ChartType for XYScatter {
             x: 0.0,
             y: area.height(),
         };
-        self.mk_labels(&steps, &xylines, &label_font, r);
+        self.mk_labels(&steps, &xylines, &label_font, r)?;
         mk_grids(
             &self.grid.clone().unwrap_or(XYPoint { x: false, y: true }),
             &steps,
@@ -194,6 +199,7 @@ impl ChartType for XYScatter {
             },
             r,
         );
+        Ok(())
     }
 }
 

@@ -41,5 +41,5 @@ pub trait ChartType: Clone {
         area: &Rect,
         label_font: &FontInfo,
         r: &mut R,
-    );
+    ) -> Result<(), crate::render::Error>;
 }
