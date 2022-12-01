@@ -75,7 +75,8 @@ fn mk_grids<R: RenderContext>(
         for pt in steps {
             let (x, y) = f(pt.to_owned() as f64);
             let line = Line::new(x, y);
-            println!("line: {} -> {}", line);
+            println!("bounds: {}", bounds);
+            println!("line: {} -> {}", Point::from(x), Point::from(y));
             let b = r.solid_brush(piet::Color::GRAY);
             r.stroke(line, &b, line_w);
         }
@@ -148,13 +149,11 @@ impl XYScatter {
         .unwrap();
         Ok((-(x_offset as f64) - 1.0, y_offset as f64 + 1.0))
     }
-    fn render_into<R: RenderContext>(
+    fn calc_paths(
         &self,
         datasets: &Vec<DataPoint<XYPoint<f64>>>,
-        area: &kurbo::Rect,
-        label_font: &FontInfo,
-        r: &mut R,
-    ) -> Result<(), render::Error> {
+        area: &Rect,
+    ) -> Result<Vec<(render::Colour, BezPath)>, render::Error> {
         let paths: Vec<_> = datasets
             .iter()
             .map(|point| {
@@ -190,7 +189,15 @@ impl XYScatter {
                 )
             })
             .collect();
-
+        Ok(paths)
+    }
+    fn render_into<R: RenderContext>(
+        &self,
+        datasets: &Vec<DataPoint<XYPoint<f64>>>,
+        area: &kurbo::Rect,
+        label_font: &FontInfo,
+        r: &mut R,
+    ) -> Result<(), render::Error> {
         let line_w = 3.0;
 
         let (step_x, step_y) = (self.steps.x as f64, self.steps.y as f64);
@@ -245,7 +252,7 @@ impl XYScatter {
             r,
         );
 
-        for (c, p) in paths {
+        for (c, p) in self.calc_paths(datasets, area)? {
             let b = r.solid_brush(c.into());
             r.stroke(p, &b, line_w);
         }
@@ -288,4 +295,37 @@ mod tests {
     use crate::{chart::DataPoint, render::Colour};
 
     use super::*;
+
+    fn to_dataset<T: Clone>(vs: &Vec<Vec<T>>) -> Vec<DataPoint<T>> {
+        vs.iter()
+            .map(|p| DataPoint {
+                name: "testpt".to_owned(),
+                colour: Colour::RGB(0, 0, 0),
+                values: p.clone(),
+            })
+            .collect()
+    }
+    #[test]
+    fn test_paths_with_offset() {
+        let datasets = to_dataset(&vec![vec![
+            XYPoint::new(0.0, 0.0),
+            XYPoint::new(10.0, 500.0),
+            XYPoint::new(20.0, 551.0),
+        ]]);
+        let chart = XYScatter {
+            axis: XYPoint::new("x", "y"),
+            steps: XYPoint::new(10 as u32, 10 as u32),
+            grid: None,
+        };
+        let areas = vec![
+            Rect::new(0.0, 0.0, 500.0, 500.0),
+            Rect::new(50.0, 88.0, 400.0, 300.0),
+        ];
+        for area in areas {
+            let paths = chart.calc_paths(&datasets, &area).unwrap();
+            for (_, bez) in paths {
+                assert!(bez.bounding_box().area() <= area.area());
+            }
+        }
+    }
 }
