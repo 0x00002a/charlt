@@ -1,7 +1,7 @@
 use std::io::Write;
 
 use anyhow::Result;
-use kurbo::{Rect, Size};
+use kurbo::{Affine, Point, Rect, Size};
 use piet::{RenderContext, Text, TextAlignment, TextLayout, TextLayoutBuilder};
 
 use super::{Error, TextInfo};
@@ -13,27 +13,36 @@ pub trait Render {
 
 pub trait RenderContextExt {
     type TextLayout: TextLayout;
-    fn render_text(&mut self, pt: kurbo::Point, info: &TextInfo)
-        -> Result<Self::TextLayout, Error>;
+    fn render_text<P: Into<Point>>(
+        &mut self,
+        pt: P,
+        info: &TextInfo,
+    ) -> Result<Self::TextLayout, Error>;
     fn text_bounds(&mut self, txt: &TextInfo) -> Result<Size, Error>;
     fn make_text_layout(&mut self, txt: &TextInfo) -> Result<Self::TextLayout, Error>;
 }
 
 impl<R: RenderContext> RenderContextExt for R {
     type TextLayout = R::TextLayout;
-    fn render_text(
+    fn render_text<P: Into<Point>>(
         &mut self,
-        mut pt: kurbo::Point,
+        pti: P,
         info: &TextInfo,
     ) -> Result<R::TextLayout, Error> {
+        let pt = pti.into();
         let txt = self.make_text_layout(info)?;
-        match info.alignment {
-            Some(TextAlignment::Center) => {
-                pt -= (txt.size() / 2.0).to_vec2();
+        let align = match info.alignment {
+            Some(TextAlignment::Center) => Affine::translate(-(txt.size() / 2.0).to_vec2()),
+            Some(TextAlignment::End) => {
+                Affine::translate((-txt.size().width, -txt.size().height / 2.0))
             }
-            _ => (),
-        }
+            _ => Affine::IDENTITY,
+        };
+        self.save()?;
+        let to_pt = Affine::translate(pt.to_vec2());
+        self.transform(to_pt * align * info.affine * to_pt.inverse());
         self.draw_text(&txt, pt);
+        self.restore()?;
         Ok(txt)
     }
 

@@ -99,7 +99,7 @@ impl XYScatter {
     fn margin(&self) -> XYPoint<f64> {
         self.margin
             .to_owned()
-            .unwrap_or(XYPoint { x: 0.0, y: 10.0 })
+            .unwrap_or(XYPoint { x: 4.0, y: 10.0 })
     }
     fn mk_labels<R: RenderContext>(
         &self,
@@ -111,46 +111,39 @@ impl XYScatter {
     ) -> Result<(f64, f64), render::Error> {
         let margin = self.margin();
         let mut build_texts = |steps: &Vec<u64>,
-                               f: &dyn Fn(f64, &mut R) -> Result<Point, render::Error>|
+                               f: &dyn Fn(f64) -> TextInfo|
          -> Result<Vec<Size>, render::Error> {
             steps
                 .iter()
                 .map(|coord| {
                     let content = coord.to_string();
-                    let pt: Vec2 = f(coord.to_owned() as f64, r)?.to_vec2();
+                    let info = f(coord.to_owned() as f64);
                     let s = r
-                        .render_text(
-                            pt.to_point(),
-                            &TextInfo::new(content)
-                                .font(lbl_font.to_owned())
-                                .alignment(TextAlignment::Center),
-                        )?
+                        .render_text((0.0, 0.0), &info.content(content).font(lbl_font.to_owned()))?
                         .size();
                     Ok(s)
                 })
                 .collect()
         };
-        let x_offset = build_texts(&steps.x, &|x, _| {
-            Ok(Point::new(x + origin.x, xylines.y + margin.y))
-        })?
-        .into_iter()
-        .map(|s| s.height.ceil() as u64)
-        .max()
-        .unwrap();
-        let y_offset = build_texts(&steps.y, &|y, r| {
-            Ok(Point::new(
-                xylines.x
-                    - r.text_bounds(&TextInfo::new(y.to_string()).font(lbl_font.to_owned()))?
-                        .width
-                    - margin.x,
-                xylines.y - y,
-            ))
+        let y_offset = build_texts(&steps.x, &|x| {
+            TextInfo::default()
+                .transform(Affine::translate((x + origin.x, xylines.y + margin.y)))
+                .alignment(TextAlignment::Center)
         })?
         .into_iter()
         .map(|s| s.width.ceil() as u64)
         .max()
         .unwrap();
-        Ok((-(x_offset as f64) - 1.0, y_offset as f64 + 1.0))
+        let x_offset = build_texts(&steps.y, &|y| {
+            TextInfo::default()
+                .alignment(TextAlignment::End)
+                .transform(Affine::translate((xylines.x - margin.x, xylines.y - y)))
+        })?
+        .into_iter()
+        .map(|s| s.width.ceil() as u64)
+        .max()
+        .unwrap();
+        Ok((x_offset as f64, y_offset as f64))
     }
     fn calc_paths(
         &self,
@@ -232,26 +225,18 @@ impl XYScatter {
             r,
         )?;
 
-        let _ = r
-            .render_text(
-                (area.center().x, area.max_y() + y_offset).into(),
-                &TextInfo::new(self.axis.y.to_owned()),
-            )?
-            .size()
-            .width;
-        r.save()?;
-        let render_pt = area.center() + (x_offset - area.center().x, 0.0);
-        r.transform(Affine::translate(render_pt.to_vec2()));
-        r.transform(Affine::rotate(-PI / 2.0));
-        r.transform(Affine::translate(render_pt.to_vec2() * -1.0));
-        let _ = r
-            .render_text(
-                render_pt,
-                &TextInfo::new(self.axis.x.to_owned()).font(label_font.to_owned()),
-            )?
-            .size()
-            .height;
-        r.restore()?;
+        r.render_text(
+            (area.center().x, area.max_y() + y_offset),
+            &TextInfo::new(self.axis.y.to_owned()).alignment(TextAlignment::Center),
+        )?;
+        r.render_text(
+            (xylines.x, area.center().y),
+            &TextInfo::new(self.axis.x.to_owned())
+                .font(label_font.to_owned())
+                .transform(Affine::translate((-(self.margin().x + x_offset), 0.0)))
+                .transform(Affine::rotate(-PI / 2.0))
+                .alignment(TextAlignment::Center),
+        )?;
 
         for line in mk_grids(
             &self.grid.clone().unwrap_or(XYPoint { x: false, y: true }),

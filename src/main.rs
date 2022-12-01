@@ -1,4 +1,7 @@
-use std::io::{BufReader, BufWriter};
+use std::{
+    fs::File,
+    io::{BufReader, BufWriter},
+};
 
 use anyhow::Result;
 use clap::{builder::PossibleValue, Parser, ValueEnum};
@@ -78,14 +81,11 @@ impl ValueEnum for OutputFormat {
         })
     }
 }
-fn do_render<R: RenderContext>(args: &CliArgs, mut r: R) -> Result<()> {
+fn do_render<R: RenderContext>(args: &CliArgs, r: &mut R) -> Result<()> {
     let mut input = BufReader::new(std::fs::File::open(args.input.to_owned())?);
     let chart = api::load_chart(&mut input)?;
     let size = Size::new(args.width as f64, args.height as f64);
-    chart.render(
-        &Rect::from_points((0.0, 0.0), (size.width, size.height)),
-        &mut r,
-    )?;
+    chart.render(&Rect::from_points((0.0, 0.0), (size.width, size.height)), r)?;
     Ok(())
 }
 
@@ -101,15 +101,22 @@ fn main() -> Result<()> {
             let surface = cairo::PdfSurface::new(size.width, size.height, args.output.clone())?;
             do_render(
                 &args,
-                piet_cairo::CairoRenderContext::new(&piet_cairo::cairo::Context::new(surface)?),
+                &mut piet_cairo::CairoRenderContext::new(&piet_cairo::cairo::Context::new(
+                    surface,
+                )?),
             )
         }
         OutputFormat::Svg => {
+            /*let mut render = piet_svg::RenderContext::new(size);
+            do_render(&args, &mut render)?;
+            let buf = BufWriter::new(File::create(args.output.clone())?);
+            render.write(buf)?;
+            Ok(())*/
             let surface =
                 cairo::SvgSurface::new(size.width, size.height, args.output.clone().into())?;
             do_render(
                 &args,
-                piet_cairo::CairoRenderContext::new(&cairo::Context::new(surface)?),
+                &mut piet_cairo::CairoRenderContext::new(&cairo::Context::new(surface)?),
             )
         }
     }

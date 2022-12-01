@@ -2,6 +2,7 @@ mod traits;
 
 use std::fmt::Display;
 
+use kurbo::Affine;
 use piet::{FontFamily, RenderContext, Text};
 use serde::Deserialize;
 pub use traits::*;
@@ -88,6 +89,13 @@ pub struct TextInfo {
     content: String,
     colour: Option<piet::Color>,
     alignment: Option<piet::TextAlignment>,
+    affine: Affine,
+}
+
+impl Default for TextInfo {
+    fn default() -> Self {
+        Self::new(String::default())
+    }
 }
 
 impl TextInfo {
@@ -97,7 +105,16 @@ impl TextInfo {
             font: None,
             colour: None,
             alignment: None,
+            affine: Affine::default(),
         }
+    }
+    pub fn content<S: AsRef<str>>(mut self, c: S) -> Self {
+        self.content = c.as_ref().to_owned();
+        self
+    }
+    pub fn transform(mut self, t: Affine) -> Self {
+        self.affine *= t;
+        self
     }
     pub fn colour<C: Into<piet::Color>>(mut self, c: C) -> Self {
         self.colour = Some(c.into());
