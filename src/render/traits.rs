@@ -19,9 +19,13 @@ impl<R: RenderContext> RenderContextExt for R {
         let mut t = self.text().new_text_layout(info.content.to_owned());
         if let Some(f) = &info.font {
             t = t.font(
-                self.text()
-                    .font_family(&f.family)
-                    .ok_or(Error::FontLoading(f.family.to_owned()))?,
+                match &f.family {
+                    super::FontType::Family(f) => f.clone(),
+                    super::FontType::Named(n) => self
+                        .text()
+                        .font_family(&n)
+                        .ok_or(Error::FontLoading(f.family.clone()))?,
+                },
                 f.size,
             );
         }

@@ -1,5 +1,7 @@
 mod traits;
 
+use std::fmt::Display;
+
 use piet::FontFamily;
 use serde::Deserialize;
 pub use traits::*;
@@ -33,15 +35,41 @@ impl From<piet::Color> for Colour {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[serde(untagged)]
+pub enum FontType {
+    #[serde(skip)]
+    Family(FontFamily),
+    Named(String),
+}
+impl From<String> for FontType {
+    fn from(s: String) -> Self {
+        Self::Named(s)
+    }
+}
+impl From<FontFamily> for FontType {
+    fn from(f: FontFamily) -> Self {
+        Self::Family(f)
+    }
+}
+
+#[derive(Deserialize, Debug, Clone)]
 pub struct FontInfo {
-    family: String,
+    family: FontType,
     size: f64,
 }
 impl Default for FontInfo {
     fn default() -> Self {
         Self {
-            family: FontFamily::SYSTEM_UI.name().to_owned(),
+            family: FontFamily::SYSTEM_UI.into(),
             size: 12.0,
+        }
+    }
+}
+impl Display for FontType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self {
+            FontType::Family(fam) => write!(f, "calculated family '{}'", fam.name()),
+            FontType::Named(n) => write!(f, "named family '{}'", n),
         }
     }
 }
@@ -73,7 +101,7 @@ impl TextInfo {
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("failed to load font {0}")]
-    FontLoading(String),
+    FontLoading(FontType),
     #[error("failed to build text {0}")]
     TextBuild(piet::Error),
 }
