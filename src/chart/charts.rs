@@ -62,6 +62,7 @@ pub struct XYScatter {
     pub axis: XYPoint<String>,
     pub steps: XYPoint<u32>,
     pub grid: Option<XYPoint<bool>>,
+    pub margin: Option<XYPoint<f64>>,
 }
 
 fn mk_grids(grid: &XYPoint<bool>, steps: &XYPoint<Vec<u64>>, bounds: &Rect) -> Vec<Line> {
@@ -92,6 +93,11 @@ fn mk_grids(grid: &XYPoint<bool>, steps: &XYPoint<Vec<u64>>, bounds: &Rect) -> V
     out
 }
 impl XYScatter {
+    fn margin(&self) -> XYPoint<f64> {
+        self.margin
+            .to_owned()
+            .unwrap_or(XYPoint { x: 0.0, y: 10.0 })
+    }
     fn mk_labels<R: RenderContext>(
         &self,
         steps: &XYPoint<Vec<u64>>,
@@ -100,7 +106,7 @@ impl XYScatter {
         origin: &Point,
         r: &mut R,
     ) -> Result<(f64, f64), render::Error> {
-        let margin = 0.0;
+        let margin = self.margin();
         let mut build_texts = |steps: &Vec<u64>,
                                f: &dyn Fn(f64, &mut R) -> Result<Point, render::Error>|
          -> Result<Vec<Size>, render::Error> {
@@ -122,7 +128,7 @@ impl XYScatter {
                 .collect()
         };
         let x_offset = build_texts(&steps.x, &|x, _| {
-            Ok(Point::new(x - margin + origin.x, xylines.y))
+            Ok(Point::new(x + origin.x, xylines.y + margin.y))
         })?
         .into_iter()
         .map(|s| s.height.ceil() as u64)
@@ -132,7 +138,8 @@ impl XYScatter {
             Ok(Point::new(
                 xylines.x
                     - r.text_bounds(&TextInfo::new(y.to_string()).font(lbl_font.to_owned()))?
-                        .width,
+                        .width
+                    - margin.x,
                 xylines.y - y,
             ))
         })?
@@ -267,7 +274,7 @@ impl ChartType for XYScatter {
         r: &mut R,
     ) -> Result<(), render::Error> {
         let fam = label_font.family.to_owned().to_family(r)?;
-        let margin = 20.0;
+        let margin = Into::<Point>::into(self.margin()) + (20.0, 20.0);
         let char_dims = r
             .text()
             .new_text_layout("X")
@@ -275,10 +282,10 @@ impl ChartType for XYScatter {
             .build()?
             .size();
         let inner = Rect::new(
-            area.x0 + char_dims.height + char_dims.width * 4.0 + margin,
-            area.y0 + margin,
-            area.x1 - margin,
-            area.y1 - char_dims.height * 3.0 - margin,
+            area.x0 + char_dims.height + char_dims.width * 4.0 + margin.x,
+            area.y0 + margin.y,
+            area.x1 - margin.x,
+            area.y1 - char_dims.height * 3.0 - margin.y,
         );
         self.render_into(datasets, &inner, label_font, r)
     }
@@ -333,6 +340,7 @@ mod tests {
             axis: XYPoint::new("x", "y"),
             steps: XYPoint::new(10 as u32, 10 as u32),
             grid: None,
+            margin: None,
         };
         let areas = vec![
             Rect::new(0.0, 0.0, 500.0, 500.0),

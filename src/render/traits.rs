@@ -2,7 +2,7 @@ use std::io::Write;
 
 use anyhow::Result;
 use kurbo::{Rect, Size};
-use piet::{RenderContext, Text, TextLayout, TextLayoutBuilder};
+use piet::{RenderContext, Text, TextAlignment, TextLayout, TextLayoutBuilder};
 
 use super::{Error, TextInfo};
 
@@ -21,8 +21,18 @@ pub trait RenderContextExt {
 
 impl<R: RenderContext> RenderContextExt for R {
     type TextLayout = R::TextLayout;
-    fn render_text(&mut self, pt: kurbo::Point, info: &TextInfo) -> Result<R::TextLayout, Error> {
+    fn render_text(
+        &mut self,
+        mut pt: kurbo::Point,
+        info: &TextInfo,
+    ) -> Result<R::TextLayout, Error> {
         let txt = self.make_text_layout(info)?;
+        match info.alignment {
+            Some(TextAlignment::Center) => {
+                pt -= (txt.size() / 2.0).to_vec2();
+            }
+            _ => (),
+        }
         self.draw_text(&txt, pt);
         Ok(txt)
     }
