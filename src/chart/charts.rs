@@ -5,7 +5,10 @@ use piet::{RenderContext, Text, TextAlignment, TextLayout, TextLayoutBuilder};
 use rlua::{FromLua, Value};
 use serde::Deserialize;
 
-use crate::render::{self, colours, FontInfo, RenderContextExt, TextInfo};
+use crate::{
+    render::{self, colours, FontInfo, RenderContextExt, TextInfo},
+    utils::RoundMul,
+};
 
 use super::{Chart, ChartType, DataPoint};
 
@@ -191,6 +194,16 @@ impl XYScatter {
             .collect();
         Ok(paths)
     }
+    fn calc_steps(&self, area: &Rect) -> XYPoint<Vec<u64>> {
+        let (step_x, step_y) = (self.steps.x as f64, self.steps.y as f64);
+        let steps_y: Vec<_> = (0..(area.height() + step_y) as u64)
+            .step_by(step_y as usize)
+            .collect();
+        let steps_x: Vec<_> = (0..(area.width() + step_x) as u64)
+            .step_by(step_x as usize)
+            .collect();
+        XYPoint::new(steps_x, steps_y)
+    }
     fn render_into<R: RenderContext>(
         &self,
         datasets: &Vec<DataPoint<XYPoint<f64>>>,
@@ -199,14 +212,9 @@ impl XYScatter {
         r: &mut R,
     ) -> Result<(), render::Error> {
         let line_w = 3.0;
-
-        let (step_x, step_y) = (self.steps.x as f64, self.steps.y as f64);
-        let steps_y: Vec<_> = (0..(area.height() + step_y) as u64)
-            .step_by(step_y as usize)
-            .collect();
-        let steps_x: Vec<_> = (0..(area.width() + step_x) as u64)
-            .step_by(step_x as usize)
-            .collect();
+        let steps = self.calc_steps(area);
+        let steps_x = steps.x.clone();
+        let steps_y = steps.y.clone();
 
         let steps = XYPoint {
             x: steps_x,
@@ -260,6 +268,17 @@ impl XYScatter {
         }
         Ok(())
     }
+    fn step_adjust(&self, area: &Rect) -> Rect {
+        step_adjust(area, &self.steps)
+    }
+}
+fn step_adjust(area: &Rect, steps: &XYPoint<u32>) -> Rect {
+    Rect::new(
+        area.min_x(),
+        area.max_y() - area.height().ceil_mul(steps.y as f64),
+        area.min_x() + area.width().ceil_mul(steps.x as f64),
+        area.max_y(),
+    )
 }
 
 impl ChartType for XYScatter {
@@ -281,13 +300,14 @@ impl ChartType for XYScatter {
             .font(fam, label_font.size)
             .build()?
             .size();
+
         let inner = Rect::new(
             area.x0 + char_dims.height + char_dims.width * 4.0 + margin.x,
             area.y0 + margin.y,
             area.x1 - margin.x,
             area.y1 - char_dims.height * 3.0 - margin.y,
         );
-        self.render_into(datasets, &inner, label_font, r)
+        self.render_into(datasets, &self.step_adjust(&inner), label_font, r)
     }
 }
 
@@ -306,6 +326,14 @@ mod tests {
                 values: p.clone(),
             })
             .collect()
+    }
+    #[test]
+    fn test_step_adjust() {
+        let steps = XYPoint::new(5 as u32, 5 as u32);
+        let area = Rect::new(0.0, 0.0, 9.0, 9.0);
+        let adjusted = step_adjust(&area, &steps);
+        assert_eq!(adjusted.width(), 10.0);
+        assert_eq!(adjusted.height(), 10.0);
     }
     #[test]
     fn grids_with_uneven_offset() {
