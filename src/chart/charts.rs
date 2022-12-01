@@ -10,7 +10,7 @@ use crate::{
     utils::RoundMul,
 };
 
-use super::{Chart, ChartType, DataPoint};
+use super::{Chart, ChartType, DataPoint, DataPointMeta};
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(tag = "type")]
@@ -149,12 +149,12 @@ impl XYScatter {
         &self,
         datasets: &Vec<DataPoint<XYPoint<f64>>>,
         area: &Rect,
-    ) -> Result<Vec<(render::Colour, BezPath)>, render::Error> {
+    ) -> Result<Vec<(DataPointMeta, BezPath)>, render::Error> {
         let paths: Vec<_> = datasets
             .iter()
             .map(|point| {
                 (
-                    point.colour.to_owned(),
+                    point.extra.to_owned(),
                     point.values.iter().fold(BezPath::new(), |mut path, pt| {
                         if path.elements().len() == 0 {
                             path.move_to(pt.clone())
@@ -204,7 +204,6 @@ impl XYScatter {
         label_font: &FontInfo,
         r: &mut R,
     ) -> Result<(), render::Error> {
-        let line_w = 3.0;
         let steps = self.calc_steps(area);
         let steps_x = steps.x.clone();
         let steps_y = steps.y.clone();
@@ -247,9 +246,28 @@ impl XYScatter {
             r.stroke(line, &b, 1.0);
         }
 
+        let axis = mk_grids(
+            &XYPoint::new(true, true),
+            &XYPoint::new(vec![steps.x[0]], vec![steps.y[0].to_owned()]),
+            area,
+        )
+        .into_iter()
+        .fold(BezPath::default(), |mut p, l| {
+            if p.elements().len() == 0 {
+                p.move_to(l.p0);
+                p.line_to(l.p0);
+            } else {
+                p.line_to(l.p0);
+                p.line_to(l.p1);
+            };
+            p
+        });
+        let b = r.solid_brush(piet::Color::BLACK);
+        r.stroke(axis, &b, 2.0);
+
         for (c, p) in self.calc_paths(datasets, area)? {
-            let b = r.solid_brush(c.into());
-            r.stroke(p, &b, line_w);
+            let b = r.solid_brush(c.colour.into());
+            r.stroke(p, &b, c.thickness);
         }
         Ok(())
     }
@@ -306,8 +324,11 @@ mod tests {
     fn to_dataset<T: Clone>(vs: &Vec<Vec<T>>) -> Vec<DataPoint<T>> {
         vs.iter()
             .map(|p| DataPoint {
-                name: "testpt".to_owned(),
-                colour: Colour::RGB(0, 0, 0),
+                extra: DataPointMeta {
+                    name: "testpt".to_owned(),
+                    colour: Colour::RGB(0, 0, 0),
+                    thickness: 0.0,
+                },
                 values: p.clone(),
             })
             .collect()

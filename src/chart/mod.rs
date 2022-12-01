@@ -17,11 +17,22 @@ use crate::{
     render::{Colour, FontInfo},
     utils::Holds,
 };
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct DataPointMeta {
+    name: String,
+    colour: Colour,
+    #[serde(default = "default_line_thickness")]
+    thickness: f64,
+}
 #[derive(Clone, Debug, Deserialize)]
 pub struct DataPoint<T: Clone> {
-    name: String,
     values: Vec<T>,
-    colour: Colour,
+    #[serde(flatten)]
+    extra: DataPointMeta,
+}
+fn default_line_thickness() -> f64 {
+    return 1.5;
 }
 #[derive(Clone, Debug, Deserialize)]
 pub struct Chart<C, Pt: Clone> {

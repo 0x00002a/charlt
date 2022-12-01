@@ -1,3 +1,7 @@
+use std::ops::{Deref, DerefMut};
+
+use kurbo::Shape;
+
 pub trait Holds {
     type Item;
     fn map<O, T, F: FnOnce(Self::Item) -> T>(self, f: F) -> O
@@ -17,6 +21,48 @@ impl RoundMul<f64> for f64 {
             rs += other;
         }
         rs
+    }
+}
+
+struct BezWrapper(kurbo::BezPath);
+
+impl From<BezWrapper> for kurbo::BezPath {
+    fn from(r: BezWrapper) -> Self {
+        r.0
+    }
+}
+impl From<kurbo::BezPath> for BezWrapper {
+    fn from(p: kurbo::BezPath) -> Self {
+        Self(p)
+    }
+}
+impl Deref for BezWrapper {
+    type Target = kurbo::BezPath;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for BezWrapper {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl FromIterator<kurbo::Point> for BezWrapper {
+    fn from_iter<T: IntoIterator<Item = kurbo::Point>>(iter: T) -> Self {
+        BezWrapper(
+            iter.into_iter()
+                .fold(kurbo::BezPath::default(), |mut path, p| {
+                    if path.elements().len() == 0 {
+                        path.move_to(p);
+                    } else {
+                        path.line_to(p);
+                    }
+                    path
+                }),
+        )
     }
 }
 
