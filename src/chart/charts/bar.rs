@@ -90,7 +90,7 @@ impl DrawingInfo {
     }
     fn cat_xbounds(&self, cat: usize) -> (Point, Point) {
         let start_x = cat as f64 * self.block_gap();
-        let end_x = start_x + self.nb_cats * self.block_w;
+        let end_x = start_x + self.nb_blocks * self.block_w;
         ((start_x, 0.0).into(), (end_x, 0.0).into())
     }
 }
