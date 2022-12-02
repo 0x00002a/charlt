@@ -17,7 +17,7 @@ pub struct BarChart {
 }
 struct DrawingInfo {
     block_w: f64,
-    inner_len: f64,
+    nb_cats: f64,
     max_val: f64,
     spacing: f64,
     area: Rect,
@@ -25,13 +25,13 @@ struct DrawingInfo {
 }
 impl DrawingInfo {
     fn block_gap(&self) -> f64 {
-        self.block_w * self.inner_len + self.spacing
+        self.block_w * self.nb_blocks + self.spacing
     }
     fn block_h(&self, v: f64) -> f64 {
         (self.area.height() / self.max_val) * v
     }
     fn new(datasets: &Vec<Dataset<f64>>, area: Rect, spacing: f64) -> Result<Self> {
-        let inner_len = datasets
+        let nb_cats = datasets
             .iter()
             .map(|dset| dset.values.len())
             .fold(Ok(0), |r, l| {
@@ -45,16 +45,16 @@ impl DrawingInfo {
                     }
                 })
             })? as f64;
-        let nb_blocks = datasets.len() as f64 * inner_len;
-        let free_width = area.width() - (datasets.len() as f64 - 1.0) * spacing;
-        if free_width < nb_blocks {
+        let nb_blocks = datasets.len() as f64;
+        let free_width = area.width() - (nb_cats - 1.0) * spacing;
+        if free_width < nb_blocks * nb_cats {
             return Err(render::Error::NotEnoughSpace(
                 nb_blocks,
                 free_width,
                 "free width for blocks".to_owned(),
             ));
         }
-        let block_w = free_width / nb_blocks;
+        let block_w = free_width / (nb_blocks * nb_cats);
         let max_val = datasets
             .iter()
             .flat_map(|dset| dset.values.iter().map(|v| v.ceil() as u64))
@@ -62,7 +62,7 @@ impl DrawingInfo {
             .unwrap() as f64;
         Ok(Self {
             block_w,
-            inner_len,
+            nb_cats,
             max_val,
             spacing,
             area,
@@ -73,16 +73,24 @@ impl DrawingInfo {
         let start_x =
             num as f64 * self.block_gap() + dataset as f64 * self.block_w + self.area.min_x();
         let start_y = self.area.min_y();
-        Rect::new(
+
+        let r = Rect::new(
             start_x,
             start_y,
             start_x + self.block_w,
             start_y + self.block_h(v),
-        )
+        );
+        assert!(
+            self.area.union(r).area() <= self.area.area(),
+            "block ({:?}) inside draw area ({:?})",
+            r,
+            self.area
+        );
+        r
     }
     fn cat_xbounds(&self, cat: usize) -> (Point, Point) {
         let start_x = cat as f64 * self.block_gap();
-        let end_x = start_x + self.inner_len * self.block_w;
+        let end_x = start_x + self.nb_cats * self.block_w;
         ((start_x, 0.0).into(), (end_x, 0.0).into())
     }
 }
@@ -98,7 +106,7 @@ impl BarChart {
     }
 
     fn spacing(&self) -> f64 {
-        self.spacing.to_owned().unwrap_or(10.0)
+        self.spacing.to_owned().unwrap_or(5.0)
     }
     fn calc_blocks(
         &self,
@@ -127,7 +135,7 @@ impl BarChart {
         info: &DrawingInfo,
         margins: &XY<f64>,
     ) -> Result<Vec<TextInfo>> {
-        if info.inner_len != self.categories.len() as f64 {
+        if info.nb_cats != self.categories.len() as f64 {
             return Err(render::Error::InvalidDatasets(format!(
                 "categories and number of blocks do not match {} != {}",
                 self.categories.len(),
@@ -193,7 +201,7 @@ impl ChartType for BarChart {
             (area.x1 - margin.x).floor(),
             (area.y1 - char_dims.height * 3.0 - margin.y).floor(),
         );
-        let area = step_adjust(&inner, &XY::new(1 as u32, self.step));
+        let area = inner;
         let draw_info = DrawingInfo::new(datasets, area.clone(), self.spacing())?;
         r.with_restore(|r| -> Result<()> {
             let to_mid = Affine::translate(area.center().to_vec2());
@@ -252,10 +260,8 @@ mod tests {
     #[test]
     fn test_bar_allocation() {
         let datasets = to_dataset(&vec![vec![0.0, 10.0], vec![2.0, 5.0]]);
-        let mut chart = BarChart::new();
         let area = Rect::new(0.0, 0.0, 12.0, 12.0);
         let spacing = 2.0;
-        chart.spacing = Some(spacing);
         let block_w = (area.width() - spacing) / 4.0 as f64;
         let info = DrawingInfo::new(&datasets, area.clone(), spacing).unwrap();
         let block_h = |v| area.height() / 10.0 * v;
@@ -282,6 +288,10 @@ mod tests {
         for i in 0..expected.len() {
             for n in 0..expected[i].len() {
                 let rect = info.block_rect(i, n, datasets[i].values[n]);
+                assert_eq!(
+                    info.block_gap(),
+                    info.block_w * expected[i].len() as f64 + spacing
+                );
                 assert_eq!(rect, expected[i][n], "rect: [{}][{}]", i, n);
             }
         }
