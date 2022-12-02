@@ -25,7 +25,7 @@ struct DrawingInfo {
 }
 impl DrawingInfo {
     fn block_gap(&self) -> f64 {
-        self.block_w * self.nb_blocks + self.spacing
+        self.block_w * self.nb_blocks + self.spacing * 2.0
     }
     fn block_h(&self, v: f64) -> f64 {
         (self.area.height() / self.max_val) * v
@@ -46,7 +46,7 @@ impl DrawingInfo {
                 })
             })? as f64;
         let nb_blocks = datasets.len() as f64;
-        let free_width = area.width() - (nb_cats - 1.0) * spacing;
+        let free_width = area.width() - (nb_cats) * spacing * 2.0;
         if free_width < nb_blocks * nb_cats {
             return Err(render::Error::NotEnoughSpace(
                 nb_blocks,
@@ -70,8 +70,10 @@ impl DrawingInfo {
         })
     }
     fn block_rect(&self, dataset: usize, num: usize, v: f64) -> Rect {
-        let start_x =
-            num as f64 * self.block_gap() + dataset as f64 * self.block_w + self.area.min_x();
+        let start_x = num as f64 * self.block_gap()
+            + dataset as f64 * self.block_w
+            + self.area.min_x()
+            + self.spacing;
         let start_y = self.area.min_y();
 
         let r = Rect::new(
@@ -261,7 +263,7 @@ mod tests {
     fn test_bar_allocation() {
         let datasets = to_dataset(&vec![vec![0.0, 10.0], vec![2.0, 5.0]]);
         let area = Rect::new(0.0, 0.0, 12.0, 12.0);
-        let spacing = 2.0;
+        let spacing = 0.0;
         let block_w = (area.width() - spacing) / 4.0 as f64;
         let info = DrawingInfo::new(&datasets, area.clone(), spacing).unwrap();
         let block_h = |v| area.height() / 10.0 * v;
