@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = { version = "1.0.66", features = ["backtrace"] }
-cairo-rs = { version = "0.16.3", features = ["pdf", "png", "svg"] }
+cairo-rs = { version = "0.16.3", features = ["pdf", "png", "svg"], default-features = false }
 clap = { version = "4.0.27", features = ["derive"] }
 kurbo = "0.9.0"
 piet = "0.6.0"
