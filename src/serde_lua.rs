@@ -1,6 +1,9 @@
-use rlua::Value;
+use std::{borrow::Borrow, rc::Rc};
+
+use rlua::{Lua, Value};
 use serde::{
-    de::{self},
+    de, forward_to_deserialize_any,
+    ser::{self, SerializeMap},
     Deserialize,
 };
 use thiserror::Error;
@@ -47,6 +50,19 @@ impl de::Error for LuaDeserializeErr {
         T: std::fmt::Display,
     {
         LuaDeserializeErr::Custom(msg.to_string())
+    }
+}
+impl ser::Error for LuaDeserializeErr {
+    fn custom<T>(msg: T) -> Self
+    where
+        T: std::fmt::Display,
+    {
+        LuaDeserializeErr::Custom(msg.to_string())
+    }
+}
+impl From<rlua::Error> for LuaDeserializeErr {
+    fn from(e: rlua::Error) -> Self {
+        Self::Lua(e)
     }
 }
 trait ValueExt<'lua> {
@@ -235,337 +251,372 @@ impl<'de, 'lua> de::Deserializer<'de> for Deserializer<'lua> {
             Value::String(s) => visitor.visit_string(s.to_str().unwrap().to_owned()),
             Value::Table(t) => {
                 if t.raw_len() > 0 {
-                    self.deserialize_seq(visitor)
+                    self.input.as_table(|t| visitor.visit_seq(TableSeq::new(t)))
                 } else {
-                    self.deserialize_map(visitor)
+                    self.input.as_table(|t| visitor.visit_map(TableMap::new(t)))
                 }
             }
             Value::Error(e) => Err(DeErr::Lua(e)),
             _ => unimplemented!(),
         }
     }
+    forward_to_deserialize_any! {bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
+    bytes byte_buf option unit unit_struct newtype_struct seq tuple
+    tuple_struct map struct enum identifier ignored_any}
+}
 
-    fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        match self.input {
-            Value::Boolean(b) => visitor.visit_bool(b),
-            _ => type_err(&self.input, "bool"),
+struct Serializer<L>
+where
+    L: Borrow<Lua>,
+{
+    lua: L,
+}
+
+impl<L> Serializer<L>
+where
+    L: Borrow<Lua>,
+{
+    fn new(lua: L) -> Self {
+        Self { lua }
+    }
+
+    fn to_lua<'lua, C: rlua::ToLua<'lua>>(self, v: C) -> Result<Value<'lua>, DeErr> {
+        Ok(self.lua.borrow().context(move |c| v.to_lua(c))?)
+    }
+}
+impl Default for Serializer<Lua> {
+    fn default() -> Self {
+        Self {
+            lua: rlua::Lua::new(),
         }
     }
+}
 
-    fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+struct SeqSerializer<'lua> {
+    vals: Vec<Value<'lua>>,
+    lua: &'lua rlua::Lua,
+}
+
+impl<'ser, 'lua> ser::SerializeSeq for SeqSerializer<'lua> {
+    type Ok = Value<'lua>;
+    type Error = DeErr;
+
+    fn serialize_element<T: ?Sized>(&mut self, value: &T) -> Result<(), Self::Error>
     where
-        V: de::Visitor<'de>,
+        T: serde::Serialize,
     {
-        match self.input {
-            Value::Integer(i) => match i.try_into() {
-                Err(e) => Err(DeErr::Other(Box::new(e))),
-                Ok(i) => visitor.visit_i8(i),
-            },
-            _ => type_err(&self.input, "i8"),
-        }
+        self.vals.push(value.serialize(&Serializer::default())?);
+        Ok(())
     }
 
-    fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        let mut tbl = self.lua.context(|lua| {
+            lua.create_table_from(self.vals.into_iter().enumerate().map(|(k, v)| (k + 1, v)))
+        })?;
+        Ok(Value::Table(tbl))
+    }
+}
+impl<'ser, 'lua> ser::SerializeTuple for SeqSerializer<'lua> {
+    type Ok = Value<'lua>;
+    type Error = DeErr;
+
+    fn serialize_element<T: ?Sized>(&mut self, value: &T) -> Result<(), Self::Error>
     where
-        V: de::Visitor<'de>,
+        T: serde::Serialize,
     {
-        match self.input {
-            Value::Integer(i) => match i.try_into() {
-                Err(e) => Err(DeErr::Other(Box::new(e))),
-                Ok(i) => visitor.visit_i16(i),
-            },
-            _ => type_err(&self.input, "i16"),
-        }
+        <Self as ser::SerializeSeq>::serialize_element(self, value)
     }
 
-    fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        <Self as ser::SerializeSeq>::end(self)
+    }
+}
+impl<'ser, 'lua> ser::SerializeTupleStruct for SeqSerializer<'lua> {
+    type Ok = Value<'lua>;
+    type Error = DeErr;
+
+    fn serialize_field<T: ?Sized>(&mut self, value: &T) -> Result<(), Self::Error>
     where
-        V: de::Visitor<'de>,
+        T: serde::Serialize,
     {
-        match self.input {
-            Value::Integer(i) => match i.try_into() {
-                Err(e) => Err(DeErr::Other(Box::new(e))),
-                Ok(i) => visitor.visit_i32(i),
-            },
-            _ => type_err(&self.input, "i32"),
-        }
+        <Self as ser::SerializeSeq>::serialize_element(self, value)
     }
 
-    fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        <Self as ser::SerializeSeq>::end(self)
+    }
+}
+impl<'ser, 'lua> ser::SerializeTupleVariant for SeqSerializer<'lua> {
+    type Ok = Value<'lua>;
+    type Error = DeErr;
+
+    fn serialize_field<T: ?Sized>(&mut self, value: &T) -> Result<(), Self::Error>
     where
-        V: de::Visitor<'de>,
+        T: serde::Serialize,
     {
-        match self.input {
-            Value::Integer(i) => match i.try_into() {
-                Err(e) => Err(DeErr::Other(Box::new(e))),
-                Ok(i) => visitor.visit_i64(i),
-            },
-            _ => type_err(&self.input, "i64"),
-        }
+        <Self as ser::SerializeSeq>::serialize_element(self, value)
     }
 
-    fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        <Self as ser::SerializeSeq>::end(self)
+    }
+}
+struct MapSerialize<'lua> {
+    lua: &'lua rlua::Lua,
+    keys: Vec<Value<'lua>>,
+    values: Vec<Value<'lua>>,
+}
+impl<'lua> ser::SerializeMap for MapSerialize<'lua> {
+    type Ok = Value<'lua>;
+    type Error = DeErr;
+
+    fn serialize_key<T: ?Sized>(&mut self, key: &T) -> Result<(), Self::Error>
     where
-        V: de::Visitor<'de>,
+        T: serde::Serialize,
     {
-        match self.input {
-            Value::Integer(i) => match i.try_into() {
-                Err(e) => Err(DeErr::Other(Box::new(e))),
-                Ok(i) => visitor.visit_u8(i),
-            },
-            _ => type_err(&self.input, "u8"),
-        }
+        self.keys
+            .push(key.serialize(&Serializer::new(self.lua.clone()))?);
+        Ok(())
     }
 
-    fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    fn serialize_value<T: ?Sized>(&mut self, value: &T) -> Result<(), Self::Error>
     where
-        V: de::Visitor<'de>,
+        T: serde::Serialize,
     {
-        match self.input {
-            Value::Integer(i) => match i.try_into() {
-                Err(e) => Err(DeErr::Other(Box::new(e))),
-                Ok(i) => visitor.visit_u16(i),
-            },
-            _ => type_err(&self.input, "u16"),
-        }
+        self.values
+            .push(value.serialize(&Serializer::new(self.lua.clone()))?);
+        Ok(())
     }
 
-    fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        Ok(Value::Table(self.lua.context(|c| {
+            c.create_table_from(self.keys.into_iter().zip(self.values.into_iter()))
+        })?))
+    }
+}
+impl<'lua> ser::SerializeStruct for MapSerialize<'lua> {
+    type Ok = Value<'lua>;
+    type Error = DeErr;
+
+    fn serialize_field<T: ?Sized>(
+        &mut self,
+        key: &'static str,
+        value: &T,
+    ) -> Result<(), Self::Error>
     where
-        V: de::Visitor<'de>,
+        T: serde::Serialize,
     {
-        match self.input {
-            Value::Integer(i) => match i.try_into() {
-                Err(e) => Err(DeErr::Other(Box::new(e))),
-                Ok(i) => visitor.visit_u32(i),
-            },
-            _ => type_err(&self.input, "u32"),
-        }
+        <Self as SerializeMap>::serialize_key(self, key)?;
+        <Self as SerializeMap>::serialize_value(self, value)?;
+        Ok(())
     }
 
-    fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        <Self as SerializeMap>::end(self)
+    }
+}
+impl<'lua> ser::SerializeStructVariant for MapSerialize<'lua> {
+    type Ok = Value<'lua>;
+    type Error = DeErr;
+
+    fn serialize_field<T: ?Sized>(
+        &mut self,
+        key: &'static str,
+        value: &T,
+    ) -> Result<(), Self::Error>
     where
-        V: de::Visitor<'de>,
+        T: serde::Serialize,
     {
-        match self.input {
-            Value::Integer(i) => match i.try_into() {
-                Err(e) => Err(DeErr::Other(Box::new(e))),
-                Ok(i) => visitor.visit_u64(i),
-            },
-            _ => type_err(&self.input, "u64"),
-        }
+        <Self as SerializeMap>::serialize_key(self, key)?;
+        <Self as SerializeMap>::serialize_value(self, value)?;
+        Ok(())
     }
 
-    fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        match self.input {
-            Value::Number(i) => match i.try_into() {
-                Err(e) => Err(DeErr::Other(Box::new(e))),
-                Ok(i) => visitor.visit_f64(i),
-            },
-            _ => type_err(&self.input, "f64"),
-        }
+    fn end(self) -> Result<Self::Ok, Self::Error> {
+        <Self as SerializeMap>::end(self)
+    }
+}
+
+impl<'ser, 'lua, L> serde::ser::Serializer for &'lua Serializer<L>
+where
+    L: Borrow<Lua>,
+{
+    type Ok = Value<'lua>;
+
+    type Error = DeErr;
+
+    type SerializeSeq = SeqSerializer<'lua>;
+
+    type SerializeTuple = SeqSerializer<'lua>;
+
+    type SerializeTupleStruct = SeqSerializer<'lua>;
+
+    type SerializeTupleVariant = SeqSerializer<'lua>;
+
+    type SerializeMap = MapSerialize<'lua>;
+
+    type SerializeStruct = MapSerialize<'lua>;
+
+    type SerializeStructVariant = MapSerialize<'lua>;
+
+    fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
+        self.to_lua(v)
     }
 
-    fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        match self.input {
-            Value::Number(i) => match i.try_into() {
-                Err(e) => Err(DeErr::Other(Box::new(e))),
-                Ok(i) => visitor.visit_f64(i),
-            },
-            _ => type_err(&self.input, "f64"),
-        }
+    fn serialize_i8(self, v: i8) -> Result<Self::Ok, Self::Error> {
+        self.to_lua(v)
     }
 
-    fn deserialize_char<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        match self.input {
-            Value::String(s) => match s.to_str() {
-                Err(e) => Err(DeErr::Lua(e)),
-                Ok(s) => {
-                    if s.len() == 1 {
-                        visitor.visit_char(s.chars().nth(0).unwrap())
-                    } else {
-                        Err(DeErr::WrongLength(1, s.len()))
-                    }
-                }
-            },
-            _ => type_err(&self.input, "string"),
-        }
+    fn serialize_i16(self, v: i16) -> Result<Self::Ok, Self::Error> {
+        self.to_lua(v)
     }
 
-    fn deserialize_str<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        match self.input {
-            Value::String(s) => match s.to_str() {
-                Err(e) => Err(DeErr::Lua(e)),
-                Ok(s) => visitor.visit_str(s),
-            },
-            _ => type_err(&self.input, "string"),
-        }
+    fn serialize_i32(self, v: i32) -> Result<Self::Ok, Self::Error> {
+        self.to_lua(v)
     }
 
-    fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        match self.input {
-            Value::String(s) => match s.to_str() {
-                Err(e) => Err(DeErr::Lua(e)),
-                Ok(s) => visitor.visit_string(s.to_owned()),
-            },
-            _ => type_err(&self.input, "string"),
-        }
+    fn serialize_i64(self, v: i64) -> Result<Self::Ok, Self::Error> {
+        self.to_lua(v)
     }
 
-    fn deserialize_bytes<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        unimplemented!()
+    fn serialize_u8(self, v: u8) -> Result<Self::Ok, Self::Error> {
+        self.to_lua(v)
     }
 
-    fn deserialize_byte_buf<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        unimplemented!()
+    fn serialize_u16(self, v: u16) -> Result<Self::Ok, Self::Error> {
+        self.to_lua(v)
     }
 
-    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        match self.input {
-            Value::Nil => visitor.visit_none(),
-            v => visitor.visit_some(Deserializer { input: v }),
-        }
+    fn serialize_u32(self, v: u32) -> Result<Self::Ok, Self::Error> {
+        self.to_lua(v)
     }
 
-    fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        match self.input {
-            Value::Nil => visitor.visit_unit(),
-            _ => type_err(&self.input, "unit"),
-        }
+    fn serialize_u64(self, v: u64) -> Result<Self::Ok, Self::Error> {
+        self.to_lua(v)
     }
 
-    fn deserialize_unit_struct<V>(
+    fn serialize_f32(self, v: f32) -> Result<Self::Ok, Self::Error> {
+        self.to_lua(v)
+    }
+
+    fn serialize_f64(self, v: f64) -> Result<Self::Ok, Self::Error> {
+        self.to_lua(v)
+    }
+
+    fn serialize_char(self, v: char) -> Result<Self::Ok, Self::Error> {
+        self.to_lua(v.to_string())
+    }
+
+    fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
+        self.to_lua(v)
+    }
+
+    fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
+        self.to_lua(v.to_vec())
+    }
+
+    fn serialize_none(self) -> Result<Self::Ok, Self::Error> {
+        Ok(Value::Nil)
+    }
+
+    fn serialize_some<T: ?Sized>(self, value: &T) -> Result<Self::Ok, Self::Error>
+    where
+        T: serde::Serialize,
+    {
+        value.serialize(self)
+    }
+
+    fn serialize_unit(self) -> Result<Self::Ok, Self::Error> {
+        Ok(Value::Nil)
+    }
+
+    fn serialize_unit_struct(self, name: &'static str) -> Result<Self::Ok, Self::Error> {
+        Ok(Value::Nil)
+    }
+
+    fn serialize_unit_variant(
         self,
         name: &'static str,
-        visitor: V,
-    ) -> Result<V::Value, Self::Error>
+        variant_index: u32,
+        variant: &'static str,
+    ) -> Result<Self::Ok, Self::Error> {
+        Ok(Value::Nil)
+    }
+
+    fn serialize_newtype_struct<T: ?Sized>(
+        self,
+        _name: &'static str,
+        value: &T,
+    ) -> Result<Self::Ok, Self::Error>
     where
-        V: de::Visitor<'de>,
+        T: serde::Serialize,
     {
-        self.input.as_table(|t| match t.get(name) {
-            Err(e) => Err(DeErr::Lua(e)),
-            Ok(v) => match v {
-                Value::Nil => visitor.visit_unit(),
-                _ => type_err(&v, "unit"),
-            },
+        value.serialize(self)
+    }
+
+    fn serialize_newtype_variant<T: ?Sized>(
+        self,
+        name: &'static str,
+        variant_index: u32,
+        variant: &'static str,
+        value: &T,
+    ) -> Result<Self::Ok, Self::Error>
+    where
+        T: serde::Serialize,
+    {
+        todo!()
+    }
+
+    fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
+        let mut vals = Vec::new();
+        vals.reserve(len.unwrap_or(0));
+        Ok(SeqSerializer {
+            vals,
+            lua: self.lua.borrow(),
         })
     }
 
-    fn deserialize_newtype_struct<V>(
+    fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple, Self::Error> {
+        todo!()
+    }
+
+    fn serialize_tuple_struct(
         self,
         name: &'static str,
-        visitor: V,
-    ) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        self.input.as_table(|t| match t.get(name) {
-            Err(e) => Err(DeErr::Lua(e)),
-            Ok(v) => visitor.visit_newtype_struct(Deserializer { input: v }),
-        })
+        len: usize,
+    ) -> Result<Self::SerializeTupleStruct, Self::Error> {
+        todo!()
     }
 
-    fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        self.input.as_table(|t| visitor.visit_seq(TableSeq::new(t)))
-    }
-
-    fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        self.deserialize_seq(visitor)
-    }
-
-    fn deserialize_tuple_struct<V>(
+    fn serialize_tuple_variant(
         self,
-        _name: &'static str,
-        _len: usize,
-        visitor: V,
-    ) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        self.deserialize_seq(visitor)
+        name: &'static str,
+        variant_index: u32,
+        variant: &'static str,
+        len: usize,
+    ) -> Result<Self::SerializeTupleVariant, Self::Error> {
+        todo!()
     }
 
-    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        self.input.as_table(|t| visitor.visit_map(TableMap::new(t)))
+    fn serialize_map(self, len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
+        todo!()
     }
 
-    fn deserialize_struct<V>(
+    fn serialize_struct(
         self,
-        _name: &'static str,
-        _fields: &'static [&'static str],
-        visitor: V,
-    ) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        self.deserialize_map(visitor)
+        name: &'static str,
+        len: usize,
+    ) -> Result<Self::SerializeStruct, Self::Error> {
+        todo!()
     }
 
-    fn deserialize_enum<V>(
+    fn serialize_struct_variant(
         self,
-        _name: &'static str,
-        _variants: &'static [&'static str],
-        visitor: V,
-    ) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        match self.input {
-            Value::String(s) => visitor.visit_enum(Enum::new(s)),
-            _ => type_err(&self.input, "string"),
-        }
-    }
-
-    fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        self.deserialize_str(visitor)
-    }
-
-    fn deserialize_ignored_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        self.deserialize_any(visitor)
+        name: &'static str,
+        variant_index: u32,
+        variant: &'static str,
+        len: usize,
+    ) -> Result<Self::SerializeStructVariant, Self::Error> {
+        todo!()
     }
 }
