@@ -2,7 +2,7 @@ use kurbo::{Affine, Line, Point, Rect, Shape};
 use piet::{RenderContext, Text, TextAlignment, TextLayout, TextLayoutBuilder};
 use serde::Deserialize;
 
-use super::{decide_steps, mk_grids, step_adjust, Result, XY};
+use super::{decide_steps, mk_grids, step_adjust, Result, StepLabel, XY};
 use crate::{
     chart::{ChartInfo, ChartType, Dataset, DatasetMeta},
     render::{self, Colour, FontInfo, RenderContextExt, TextInfo},
@@ -149,14 +149,17 @@ impl BarChart {
         }
         let steps: Vec<_> = decide_steps(info.area.height(), 0.0, info.max_val, self.step as u64)
             .into_iter()
-            .map(|lbl| Point::new(0.0, lbl.offset))
+            .map(|lbl| StepLabel::new(lbl.value, Point::new(0.0, lbl.offset)))
             .collect();
-        for pt in steps {
+        for lbl in steps {
             out.push(
-                TextInfo::new(pt.y.to_string())
+                TextInfo::new(lbl.value.to_string())
                     .alignment(TextAlignment::End)
                     .font(font.to_owned())
-                    .transform(Affine::translate((pt.x, info.area.max_y() - pt.y))),
+                    .transform(Affine::translate((
+                        lbl.offset.x,
+                        info.area.max_y() - lbl.offset.y,
+                    ))),
             )
         }
         Ok(out)

@@ -75,18 +75,18 @@ fn mk_grids(grid: &XY<bool>, steps: &XY<Vec<u64>>, bounds: &Rect) -> Vec<Line> {
 }
 
 #[derive(PartialEq, Clone, Debug)]
-struct StepLabel {
+struct StepLabel<T> {
     value: f64,
-    offset: f64,
+    offset: T,
 }
 
-impl StepLabel {
-    fn new(value: f64, offset: f64) -> Self {
+impl<T> StepLabel<T> {
+    fn new(value: f64, offset: T) -> Self {
         Self { value, offset }
     }
 }
 
-fn decide_steps(len: f64, min_val: f64, max_val: f64, step: u64) -> Vec<StepLabel> {
+fn decide_steps(len: f64, min_val: f64, max_val: f64, step: u64) -> Vec<StepLabel<f64>> {
     let range = max_val - min_val;
     let offset_step = len / (range / step as f64);
 
