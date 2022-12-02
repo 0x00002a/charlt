@@ -29,7 +29,7 @@ fn to_dataset<T: Clone>(vs: &Vec<Vec<T>>) -> Vec<Dataset<T>> {
         .map(|p| Dataset {
             extra: DatasetMeta {
                 name: "testpt".to_owned(),
-                colour: Colour::RGB(0, 0, 0),
+                colour: Colour::BLACK,
                 thickness: 0.0,
             },
             values: p.clone(),

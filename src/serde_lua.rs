@@ -1,4 +1,4 @@
-use rlua::{Value};
+use rlua::Value;
 use serde::{
     de::{self},
     Deserialize,
@@ -29,8 +29,6 @@ pub enum LuaDeserializeErr {
     Other(Box<dyn std::error::Error>),
     #[error("expecting length {0} got {1}")]
     WrongLength(usize, usize),
-    #[error("unimplemented")]
-    Unimplemented,
 }
 fn type_err<R>(f: &Value, t: &str) -> Result<R, LuaDeserializeErr> {
     Err(LuaDeserializeErr::WrongType(
@@ -40,10 +38,6 @@ fn type_err<R>(f: &Value, t: &str) -> Result<R, LuaDeserializeErr> {
 }
 unsafe impl Send for LuaDeserializeErr {}
 unsafe impl Sync for LuaDeserializeErr {}
-
-fn unimpl<R>() -> Result<R, LuaDeserializeErr> {
-    Err(LuaDeserializeErr::Unimplemented)
-}
 
 type DeErr = LuaDeserializeErr;
 

@@ -3,37 +3,11 @@ mod traits;
 use std::fmt::Display;
 
 use kurbo::Affine;
-use piet::{FontFamily, RenderContext, Text};
+use piet::{Color, FontFamily, RenderContext, Text};
 use serde::Deserialize;
 pub use traits::*;
 
-#[derive(Clone, Debug, Deserialize)]
-#[serde(untagged)]
-pub enum Colour {
-    RGB(u8, u8, u8),
-    HEX(String),
-}
-pub mod colours {
-    use super::Colour;
-
-    pub const BLACK: Colour = Colour::RGB(0, 0, 0);
-    pub const GREY: Colour = Colour::RGB(128, 128, 128);
-}
-
-impl From<Colour> for piet::Color {
-    fn from(c: Colour) -> Self {
-        match c {
-            Colour::RGB(r, g, b) => Self::rgb8(r, g, b),
-            Colour::HEX(h) => Self::from_hex_str(&h).unwrap(),
-        }
-    }
-}
-impl From<piet::Color> for Colour {
-    fn from(c: piet::Color) -> Self {
-        let (r, g, b, _) = c.as_rgba8();
-        Self::RGB(r, g, b)
-    }
-}
+pub type Colour = Color;
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(untagged)]
@@ -151,23 +125,5 @@ unsafe impl Sync for Error {}
 impl From<piet::Error> for Error {
     fn from(e: piet::Error) -> Self {
         Self::Piet(e)
-    }
-}
-
-impl Colour {
-    fn to_hex(&self) -> String {
-        match &self {
-            Colour::RGB(r, g, b) => format!("#{:02x}{:02x}{:02x}", r, g, b),
-            Colour::HEX(h) => h.to_owned(),
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn colour_rgb_to_hex() {
-        assert_eq!(Colour::RGB(0, 255, 5).to_hex(), "#00ff05");
     }
 }

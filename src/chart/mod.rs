@@ -12,6 +12,7 @@ use crate::render::{Colour, FontInfo};
 #[derive(Clone, Debug, Deserialize)]
 pub struct DatasetMeta {
     name: String,
+    #[serde(with = "serde_colour")]
     colour: Colour,
     #[serde(default = "default_line_thickness")]
     thickness: f64,
@@ -44,4 +45,24 @@ pub trait ChartType: Clone {
         label_font: &FontInfo,
         r: &mut R,
     ) -> Result<(), crate::render::Error>;
+}
+mod serde_colour {
+    use serde::{Deserialize, Deserializer};
+
+    use crate::render::Colour;
+
+    // The signature of a deserialize_with function must follow the pattern:
+    //
+    //    fn deserialize<'de, D>(D) -> Result<T, D::Error>
+    //    where
+    //        D: Deserializer<'de>
+    //
+    // although it may also be generic over the output types T.
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Colour, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Colour::from_hex_str(&s).map_err(serde::de::Error::custom)
+    }
 }
