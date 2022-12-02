@@ -4,31 +4,32 @@ use serde::Deserialize;
 
 use super::Result;
 use crate::{
-    chart::{ChartType, DatasetMeta},
-    render::{self, FontInfo, RenderContextExt},
+    chart::{ChartType, Dataset, DatasetMeta},
+    render::{self, FontInfo, RenderContextExt, TextInfo},
 };
 
 pub type BarPoint = f64;
-#[derive(Clone, Copy, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct BarChart {
     spacing: Option<f64>,
+    categories: Vec<String>,
 }
-
-impl BarChart {
-    #[allow(unused)]
-    pub fn new() -> Self {
-        Self { spacing: None }
+struct DrawingInfo {
+    block_w: f64,
+    inner_len: f64,
+    max_val: f64,
+    spacing: f64,
+    area: Rect,
+    nb_blocks: f64,
+}
+impl DrawingInfo {
+    fn block_gap(&self) -> f64 {
+        self.block_w * self.inner_len + self.spacing
     }
-
-    fn spacing(&self) -> f64 {
-        self.spacing.to_owned().unwrap_or(10.0)
+    fn block_h(&self, v: f64) -> f64 {
+        (self.area.height() / self.max_val) * v
     }
-    fn calc_drawing_info(&self, _datasets: &Vec<super::Dataset<f64>>, _area: &Rect) {}
-    fn calc_blocks(
-        &self,
-        datasets: &Vec<super::Dataset<f64>>,
-        area: &Rect,
-    ) -> Result<Vec<(DatasetMeta, Vec<Rect>)>> {
+    fn new(datasets: &Vec<Dataset<f64>>, area: Rect, spacing: f64) -> Result<Self> {
         let inner_len = datasets
             .iter()
             .map(|dset| dset.values.len())
@@ -44,7 +45,7 @@ impl BarChart {
                 })
             })? as f64;
         let nb_blocks = datasets.len() as f64 * inner_len;
-        let free_width = area.width() - (datasets.len() as f64 - 1.0) * self.spacing();
+        let free_width = area.width() - (datasets.len() as f64 - 1.0) * spacing;
         if free_width < nb_blocks {
             return Err(render::Error::NotEnoughSpace(nb_blocks, free_width));
         }
@@ -54,8 +55,34 @@ impl BarChart {
             .flat_map(|dset| dset.values.iter().map(|v| v.ceil() as u64))
             .max()
             .unwrap() as f64;
-        let block_h = |v| (area.height() / max_val) * v;
-        let block_gap = block_w * inner_len + self.spacing();
+        Ok(Self {
+            block_w,
+            inner_len,
+            max_val,
+            spacing,
+            area,
+            nb_blocks,
+        })
+    }
+}
+
+impl BarChart {
+    #[allow(unused)]
+    pub fn new() -> Self {
+        Self {
+            spacing: None,
+            categories: Vec::default(),
+        }
+    }
+
+    fn spacing(&self) -> f64 {
+        self.spacing.to_owned().unwrap_or(10.0)
+    }
+    fn calc_blocks(
+        &self,
+        datasets: &Vec<super::Dataset<f64>>,
+        info: &DrawingInfo,
+    ) -> Result<Vec<(DatasetMeta, Vec<Rect>)>> {
         let blocks = datasets
             .iter()
             .enumerate()
@@ -66,13 +93,14 @@ impl BarChart {
                         .iter()
                         .enumerate()
                         .map(|(i, v)| {
-                            let start_x = i as f64 * block_gap + set_num as f64 * block_w;
-                            let start_y = area.min_y();
+                            let start_x =
+                                i as f64 * info.block_gap() + set_num as f64 * info.block_w;
+                            let start_y = info.area.min_y();
                             Rect::new(
                                 start_x,
                                 start_y,
-                                start_x + block_w,
-                                start_y + block_h(v.to_owned()),
+                                start_x + info.block_w,
+                                start_y + info.block_h(v.to_owned()),
                             )
                         })
                         .collect::<Vec<_>>(),
@@ -80,6 +108,9 @@ impl BarChart {
             })
             .collect();
         Ok(blocks)
+    }
+    fn calc_labels(&self, info: &DrawingInfo) -> Result<TextInfo> {
+        todo!()
     }
 }
 impl ChartType for BarChart {
@@ -101,12 +132,14 @@ impl ChartType for BarChart {
             if datasets.len() == 0 {
                 return Ok(());
             }
-            for (c, blocks) in self.calc_blocks(datasets, area)? {
+            let draw_info = DrawingInfo::new(datasets, area.to_owned(), self.spacing())?;
+            for (c, blocks) in self.calc_blocks(datasets, &draw_info)? {
                 let b = r.solid_brush(c.colour.into());
                 for block in blocks {
                     r.fill(block, &b);
                 }
             }
+
             Ok(())
         })?
     }
@@ -126,7 +159,12 @@ mod tests {
         let spacing = 2.0;
         chart.spacing = Some(spacing);
         let block_w = (area.width() - spacing) / 4.0 as f64;
-        let blocks = chart.calc_blocks(&datasets, &area).unwrap();
+        let blocks = chart
+            .calc_blocks(
+                &datasets,
+                &DrawingInfo::new(&datasets, area.clone(), spacing).unwrap(),
+            )
+            .unwrap();
         let block_h = |v| area.height() / 10.0 * v;
         let expected = vec![
             vec![
