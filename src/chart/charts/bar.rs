@@ -2,10 +2,10 @@ use kurbo::{Affine, Line, Point, Rect, Shape};
 use piet::{RenderContext, TextAlignment};
 use serde::Deserialize;
 
-use super::{Result, XY};
+use super::{mk_grids, Result, XY};
 use crate::{
     chart::{ChartInfo, ChartType, Dataset, DatasetMeta},
-    render::{self, FontInfo, RenderContextExt, TextInfo},
+    render::{self, Colour, FontInfo, RenderContextExt, TextInfo},
 };
 
 pub type BarPoint = f64;
@@ -13,6 +13,7 @@ pub type BarPoint = f64;
 pub struct BarChart {
     spacing: Option<f64>,
     categories: Vec<String>,
+    steps: u32,
 }
 struct DrawingInfo {
     block_w: f64,
@@ -87,6 +88,7 @@ impl BarChart {
         Self {
             spacing: None,
             categories: Vec::default(),
+            steps: 10,
         }
     }
 
@@ -119,7 +121,7 @@ impl BarChart {
         font: &FontInfo,
         info: &DrawingInfo,
         margins: &XY<f64>,
-    ) -> Result<TextInfo> {
+    ) -> Result<Vec<TextInfo>> {
         if info.nb_blocks != self.categories.len() as f64 {
             return Err(render::Error::InvalidDatasets(format!(
                 "categories and number of blocks do not match {} != {}",
@@ -137,8 +139,25 @@ impl BarChart {
                     .transform(Affine::translate((xstart.midpoint(xend).x, -margins.y))),
             )
         }
-
-        todo!()
+        if info.area.height() < self.steps as f64 {
+            return Err(render::Error::NotEnoughSpace(
+                self.steps as f64,
+                info.area.height(),
+            ));
+        }
+        let steps: Vec<_> = (0..info.area.height() as u64)
+            .step_by((info.area.height() / self.steps as f64).ceil() as usize)
+            .map(|y| Point::new(0.0, y as f64))
+            .collect();
+        for pt in steps {
+            out.push(
+                TextInfo::new(pt.y.to_string())
+                    .alignment(TextAlignment::End)
+                    .font(font.to_owned())
+                    .transform(Affine::translate(pt.to_vec2())),
+            )
+        }
+        Ok(out)
     }
 }
 impl ChartType for BarChart {
@@ -166,6 +185,13 @@ impl ChartType for BarChart {
                 for block in blocks {
                     r.fill(block, &b);
                 }
+            }
+            for txt in self.calc_labels(&info.font(), &draw_info, &info.margins())? {
+                r.render_text((0.0, 0.0), &txt)?;
+            }
+            for line in mk_grids(&XY::new(true, true), &XY::new(vec![0], vec![0]), &area) {
+                let b = r.solid_brush(Colour::BLACK);
+                r.stroke(line, &b, 2.0);
             }
 
             Ok(())
