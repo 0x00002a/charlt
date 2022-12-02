@@ -1,7 +1,5 @@
 use std::ops::{Deref, DerefMut};
 
-
-
 pub trait Holds {
     type Item;
     fn map<O, T, F: FnOnce(Self::Item) -> T>(self, f: F) -> O
@@ -15,12 +13,13 @@ pub trait RoundMul<T> {
 }
 impl RoundMul<f64> for f64 {
     fn ceil_mul(self, other: f64) -> Self {
-        assert!(other.signum() == self.signum());
-        let mut rs = other;
-        while rs.abs() < self.abs() && self % other != 0.0 {
-            rs += other;
+        if self % other == 0.0 {
+            self
+        } else if self.abs() > other.abs() {
+            (other * (self / other).floor()) + (other % self)
+        } else {
+            self + (other % self)
         }
-        rs
     }
 }
 
@@ -72,10 +71,10 @@ mod tests {
 
     #[test]
     fn test_ceil_mul() {
-        let muls = vec![10.0, -10.0, 5.0];
-        let inputs = vec![9.0, -13.0, 12.0];
-        let expected = vec![10.0, -20.0, 15.0];
-        for i in 0..3 {
+        let muls = vec![10.0, -10.0, 5.0, 1.0];
+        let inputs = vec![9.0, -13.0, 12.0, 10.0];
+        let expected = vec![10.0, -20.0, 15.0, 10.0];
+        for i in 0..expected.len() {
             assert_eq!(
                 inputs[i].ceil_mul(muls[i]),
                 expected[i],
