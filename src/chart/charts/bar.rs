@@ -2,7 +2,7 @@ use kurbo::{Affine, Line, Point, Rect, Shape};
 use piet::{RenderContext, Text, TextAlignment, TextLayout, TextLayoutBuilder};
 use serde::Deserialize;
 
-use super::{mk_grids, step_adjust, Result, XY};
+use super::{decide_steps, mk_grids, step_adjust, Result, XY};
 use crate::{
     chart::{ChartInfo, ChartType, Dataset, DatasetMeta},
     render::{self, Colour, FontInfo, RenderContextExt, TextInfo},
@@ -13,7 +13,7 @@ pub type BarPoint = f64;
 pub struct BarChart {
     spacing: Option<f64>,
     categories: Vec<String>,
-    steps: u32,
+    step: u32,
 }
 struct DrawingInfo {
     block_w: f64,
@@ -93,7 +93,7 @@ impl BarChart {
         Self {
             spacing: None,
             categories: Vec::default(),
-            steps: 10,
+            step: 10,
         }
     }
 
@@ -147,16 +147,9 @@ impl BarChart {
                     ))),
             )
         }
-        if info.area.height() < self.steps as f64 {
-            return Err(render::Error::NotEnoughSpace(
-                self.steps as f64,
-                info.area.height(),
-                "for vertical labels".to_owned(),
-            ));
-        }
-        let steps: Vec<_> = (0..info.area.height() as u64)
-            .step_by((info.area.height() / self.steps as f64).ceil() as usize)
-            .map(|y| Point::new(0.0, y as f64))
+        let steps: Vec<_> = decide_steps(info.area.height(), 0.0, info.max_val, self.step as u64)
+            .into_iter()
+            .map(|lbl| Point::new(0.0, lbl.offset))
             .collect();
         for pt in steps {
             out.push(
@@ -197,7 +190,7 @@ impl ChartType for BarChart {
             (area.x1 - margin.x).floor(),
             (area.y1 - char_dims.height * 3.0 - margin.y).floor(),
         );
-        let area = step_adjust(&inner, &XY::new(1 as u32, self.steps));
+        let area = step_adjust(&inner, &XY::new(1 as u32, self.step));
         let draw_info = DrawingInfo::new(datasets, area.clone(), self.spacing())?;
         r.with_restore(|r| -> Result<()> {
             let to_mid = Affine::translate(area.center().to_vec2());

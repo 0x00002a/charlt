@@ -74,7 +74,7 @@ fn mk_grids(grid: &XY<bool>, steps: &XY<Vec<u64>>, bounds: &Rect) -> Vec<Line> {
     out
 }
 
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Debug)]
 struct StepLabel {
     value: f64,
     offset: f64,
@@ -86,16 +86,15 @@ impl StepLabel {
     }
 }
 
-fn decide_steps(len: f64, min_val: f64, max_val: f64, min_gap: f64) -> Vec<StepLabel> {
+fn decide_steps(len: f64, min_val: f64, max_val: f64, step: u64) -> Vec<StepLabel> {
     let range = max_val - min_val;
-    const STEP_DIVS: [f64; 5] = [50.0, 10.0, 5.0, 2.0, 1.0];
-    let step = STEP_DIVS
-        .iter()
-        .find(|s| (range / **s) > min_gap)
-        .unwrap_or(&range)
-        .to_owned();
+    let offset_step = len / (range / step as f64);
 
-    todo!()
+    (min_val.floor_mul(step as f64) as u64..(max_val.ceil_mul(step as f64) as u64 + step))
+        .step_by(step as usize)
+        .enumerate()
+        .map(|(i, s)| StepLabel::new(s as f64, offset_step * i as f64))
+        .collect()
 }
 
 #[cfg(test)]
@@ -104,20 +103,30 @@ mod tests {
 
     #[test]
     fn test_decide_steps() {
-        let inputs = vec![(100.0, 0.0, 500.0, 10.0)];
-        let expected = vec![vec![
-            StepLabel::new(0.0, 0.0),
-            StepLabel::new(500.0, 100.0),
-            StepLabel::new(100.0, 20.0),
-            StepLabel::new(200.0, 40.0),
-            StepLabel::new(300.0, 60.0),
-            StepLabel::new(400.0, 80.0),
-        ]];
+        let inputs = vec![(100.0, 0.0, 500.0, 100), (500.0, 0.0, 100.0, 20)];
+        let expected = vec![
+            vec![
+                StepLabel::new(0.0, 0.0),
+                StepLabel::new(100.0, 20.0),
+                StepLabel::new(200.0, 40.0),
+                StepLabel::new(300.0, 60.0),
+                StepLabel::new(400.0, 80.0),
+                StepLabel::new(500.0, 100.0),
+            ],
+            vec![
+                StepLabel::new(0.0, 0.0),
+                StepLabel::new(20.0, 100.0),
+                StepLabel::new(40.0, 200.0),
+                StepLabel::new(60.0, 300.0),
+                StepLabel::new(80.0, 400.0),
+                StepLabel::new(100.0, 500.0),
+            ],
+        ];
         for i in 0..inputs.len() {
             let (len, min_val, max_val, min_gap) = inputs[i];
             let output = decide_steps(len, min_val, max_val, min_gap);
             for v in &expected[i] {
-                assert!(output.contains(v));
+                assert!(output.contains(v), "{:?} contains {:?}", output, v);
             }
         }
     }
