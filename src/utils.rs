@@ -10,6 +10,7 @@ pub trait Holds {
 
 pub trait RoundMul<T> {
     fn ceil_mul(self, other: T) -> Self;
+    fn floor_mul(self, other: T) -> Self;
 }
 impl RoundMul<f64> for f64 {
     fn ceil_mul(self, other: f64) -> Self {
@@ -19,6 +20,14 @@ impl RoundMul<f64> for f64 {
             (other * (self / other).floor()) + (other % self)
         } else {
             self + (other % self)
+        }
+    }
+
+    fn floor_mul(self, other: f64) -> Self {
+        if self % other == 0.0 {
+            self
+        } else {
+            self - (self % other)
         }
     }
 }
@@ -69,6 +78,23 @@ impl FromIterator<kurbo::Point> for BezWrapper {
 mod tests {
     use super::*;
 
+    #[test]
+    fn test_floor_mul() {
+        let muls = vec![10.0, -10.0, 5.0, 1.0];
+        let inputs = vec![9.0, -13.0, 12.0, 10.0];
+        let expected = vec![0.0, -10.0, 10.0, 10.0];
+        for i in 0..expected.len() {
+            assert_eq!(
+                inputs[i].floor_mul(muls[i]),
+                expected[i],
+                "({} -> {}) should be {} [i: {}]",
+                inputs[i],
+                muls[i],
+                expected[i],
+                i
+            );
+        }
+    }
     #[test]
     fn test_ceil_mul() {
         let muls = vec![10.0, -10.0, 5.0, 1.0];
