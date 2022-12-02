@@ -15,6 +15,7 @@ pub struct BarChart {
     spacing: Option<f64>,
     categories: Vec<String>,
     step: u32,
+    lines: Option<bool>,
 }
 struct DrawingInfo {
     block_w: f64,
@@ -108,7 +109,11 @@ impl BarChart {
             spacing: None,
             categories: Vec::default(),
             step: 10,
+            lines: None,
         }
+    }
+    fn lines(&self) -> bool {
+        self.lines.to_owned().unwrap_or(true)
     }
 
     fn spacing(&self) -> f64 {
@@ -178,6 +183,28 @@ impl BarChart {
         }
         Ok(out)
     }
+    fn draw_axis(&self, r: &mut impl RenderContext, area: &Rect) {
+        for line in mk_grids(&XY::new(true, true), &XY::new(vec![0], vec![0]), &area) {
+            let b = r.solid_brush(Colour::BLACK);
+            r.stroke(line, &b, 2.0);
+        }
+    }
+    fn draw_grid(&self, r: &mut impl RenderContext, steps: &Vec<StepLabel<f64>>, area: &Rect) {
+        for line in mk_grids(
+            &XY::new(false, true),
+            &XY::new(
+                vec![],
+                steps
+                    .iter()
+                    .map(|s| s.offset.ceil() as u64)
+                    .collect::<Vec<_>>(),
+            ),
+            &area,
+        ) {
+            let b = r.solid_brush(Colour::GRAY);
+            r.stroke(line, &b, 1.0);
+        }
+    }
 }
 impl ChartType for BarChart {
     type DataPoint = BarPoint;
@@ -209,6 +236,19 @@ impl ChartType for BarChart {
         );
         let area = &inner;
         let draw_info = DrawingInfo::new(datasets, area.clone(), self.spacing())?;
+
+        let steps = decide_steps(inner.height(), 0.0, max_val(datasets), self.step as u64);
+        let max_step_y = steps.iter().map(|s| s.offset.ceil() as u64).max().unwrap() as f64;
+        let grid_area = Rect::new(inner.x0, inner.y1 - max_step_y, inner.x1, inner.y1);
+        if self.lines() {
+            self.draw_grid(r, &steps, &grid_area);
+        }
+        self.draw_axis(r, &grid_area);
+
+        for txt in self.calc_labels(&info.font(), &draw_info, &info.margins())? {
+            r.render_text((area.min_x(), 0.0), &txt)?;
+        }
+
         r.with_restore(|r| -> Result<()> {
             let to_mid = Affine::translate(area.center().to_vec2());
             r.transform(to_mid * Affine::FLIP_Y * to_mid.inverse());
@@ -225,24 +265,6 @@ impl ChartType for BarChart {
 
             Ok(())
         })??;
-
-        let max_step_y = decide_steps(inner.height(), 0.0, max_val(datasets), self.step as u64)
-            .into_iter()
-            .map(|s| s.offset.ceil() as u64)
-            .max()
-            .unwrap() as f64;
-        for line in mk_grids(
-            &XY::new(true, true),
-            &XY::new(vec![0], vec![0]),
-            &Rect::new(inner.x0, inner.y1 - max_step_y, inner.x1, inner.y1),
-        ) {
-            let b = r.solid_brush(Colour::BLACK);
-            r.stroke(line, &b, 2.0);
-        }
-
-        for txt in self.calc_labels(&info.font(), &draw_info, &info.margins())? {
-            r.render_text((area.min_x(), 0.0), &txt)?;
-        }
 
         Ok(())
     }
