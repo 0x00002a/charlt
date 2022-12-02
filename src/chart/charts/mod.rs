@@ -4,7 +4,10 @@ pub mod xyscatter;
 use kurbo::{Line, Rect};
 use serde::Deserialize;
 
-use crate::render::{self, Colour};
+use crate::{
+    render::{self, Colour},
+    utils::RoundMul,
+};
 
 use self::{bar::BarPoint, xyscatter::XYScatter};
 use super::{Chart, Dataset, DatasetMeta, XY};
@@ -19,6 +22,15 @@ pub enum Charts {
 }
 
 type Result<T> = std::result::Result<T, render::Error>;
+
+fn step_adjust(area: &Rect, steps: &XY<u32>) -> Rect {
+    Rect::new(
+        area.min_x(),
+        area.max_y() - area.height().ceil_mul(steps.y as f64),
+        area.min_x() + area.width().ceil_mul(steps.x as f64),
+        area.max_y(),
+    )
+}
 
 #[allow(unused)]
 fn to_dataset<T: Clone>(vs: &Vec<Vec<T>>) -> Vec<Dataset<T>> {
@@ -60,4 +72,18 @@ fn mk_grids(grid: &XY<bool>, steps: &XY<Vec<u64>>, bounds: &Rect) -> Vec<Line> {
         });
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_step_adjust() {
+        let steps = XY::new(5 as u32, 5 as u32);
+        let area = Rect::new(0.0, 0.0, 9.0, 9.0);
+        let adjusted = step_adjust(&area, &steps);
+        assert_eq!(adjusted.width(), 10.0);
+        assert_eq!(adjusted.height(), 10.0);
+    }
 }

@@ -1,6 +1,4 @@
-use std::{
-    io::{BufReader},
-};
+use std::io::BufReader;
 
 use anyhow::Result;
 use clap::{builder::PossibleValue, Parser, ValueEnum};
@@ -15,7 +13,7 @@ mod render;
 mod serde_lua;
 mod utils;
 
-use std::path::{Path};
+use std::path::Path;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 enum OutputFormat {
@@ -106,17 +104,17 @@ fn main() -> Result<()> {
             )
         }
         OutputFormat::Svg => {
-            /*let mut render = piet_svg::RenderContext::new(size);
+            let mut render = piet_svg::RenderContext::new(size);
             do_render(&args, &mut render)?;
-            let buf = BufWriter::new(File::create(args.output.clone())?);
+            let buf = std::io::BufWriter::new(std::fs::File::create(args.output.clone())?);
             render.write(buf)?;
-            Ok(())*/
-            let surface =
+            Ok(())
+            /*let surface =
                 cairo::SvgSurface::new(size.width, size.height, args.output.clone().into())?;
             do_render(
                 &args,
                 &mut piet_cairo::CairoRenderContext::new(&cairo::Context::new(surface)?),
-            )
+            )*/
         }
     }
 }

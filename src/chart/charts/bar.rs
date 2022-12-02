@@ -1,8 +1,8 @@
 use kurbo::{Affine, Line, Point, Rect, Shape};
-use piet::{RenderContext, TextAlignment};
+use piet::{RenderContext, Text, TextAlignment, TextLayout, TextLayoutBuilder};
 use serde::Deserialize;
 
-use super::{mk_grids, Result, XY};
+use super::{mk_grids, step_adjust, Result, XY};
 use crate::{
     chart::{ChartInfo, ChartType, Dataset, DatasetMeta},
     render::{self, Colour, FontInfo, RenderContextExt, TextInfo},
@@ -174,31 +174,51 @@ impl ChartType for BarChart {
         area: &kurbo::Rect,
         r: &mut R,
     ) -> Result<()> {
-        r.with_restore(|r| {
-            let datasets = &info.datasets;
+        let datasets = &info.datasets;
+        let draw_info = DrawingInfo::new(datasets, area.to_owned(), self.spacing())?;
+        let label_font = &info.font();
+        let fam = label_font.family.to_owned().to_family(r)?;
+        let margin = Into::<Point>::into(info.margins()) + (20.0, 20.0);
+        let char_dims = r
+            .text()
+            .new_text_layout("X")
+            .font(fam, label_font.size)
+            .build()?
+            .size();
+
+        let inner = Rect::new(
+            area.x0 + char_dims.height + char_dims.width * 4.0 + margin.x,
+            area.y0 + margin.y,
+            area.x1 - margin.x,
+            area.y1 - char_dims.height * 3.0 - margin.y,
+        );
+        let area = step_adjust(&inner, &XY::new(1 as u32, self.steps));
+        r.with_restore(|r| -> Result<()> {
             let to_mid = Affine::translate(area.center().to_vec2());
             r.transform(to_mid * Affine::FLIP_Y * to_mid.inverse());
 
             if datasets.len() == 0 {
                 return Ok(());
             }
-            let draw_info = DrawingInfo::new(datasets, area.to_owned(), self.spacing())?;
             for (c, blocks) in self.calc_blocks(datasets, &draw_info)? {
                 let b = r.solid_brush(c.colour.into());
                 for block in blocks {
                     r.fill(block, &b);
                 }
             }
-            for txt in self.calc_labels(&info.font(), &draw_info, &info.margins())? {
-                r.render_text((0.0, 0.0), &txt)?;
-            }
+
             for line in mk_grids(&XY::new(true, true), &XY::new(vec![0], vec![0]), &area) {
                 let b = r.solid_brush(Colour::BLACK);
                 r.stroke(line, &b, 2.0);
             }
-
             Ok(())
-        })?
+        })??;
+
+        for txt in self.calc_labels(&info.font(), &draw_info, &info.margins())? {
+            r.render_text((0.0, 0.0), &txt)?;
+        }
+
+        Ok(())
     }
 }
 
