@@ -9,7 +9,7 @@ use serde::{
 use thiserror::Error;
 
 #[derive(Clone)]
-struct Deserializer<'lua> {
+pub struct Deserializer<'lua> {
     input: Value<'lua>,
 }
 
@@ -18,7 +18,11 @@ pub fn from_lua<'de, V: Deserialize<'de>>(v: Value) -> Result<V, DeErr> {
     V::deserialize(de)
 }
 
-impl<'de, 'lua> Deserializer<'lua> {}
+impl<'de, 'lua> Deserializer<'lua> {
+    pub fn new(input: Value<'lua>) -> Self {
+        Self { input }
+    }
+}
 
 #[derive(Error, Debug)]
 pub enum LuaDeserializeErr {

@@ -60,8 +60,8 @@ impl<Pt: Clone> ChartInfo<Pt> {
 
     fn margins(&self) -> XY<f64> {
         const DEFAULT: XY<f64> = {
-            let x = 3.0;
-            let y = 5.0;
+            let x = 5.0;
+            let y = 10.0;
             XY { x, y }
         };
         self.margins

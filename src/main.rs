@@ -1,6 +1,7 @@
 use std::io::BufReader;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
+use api::InputFormat;
 use clap::{builder::PossibleValue, Parser, ValueEnum};
 use kurbo::{Rect, Size};
 use piet::RenderContext;
@@ -62,9 +63,17 @@ struct CliArgs {
 
     #[arg(
         long,
+        alias = "to",
         help = "output format to use, if not provided calculated from extension"
     )]
-    format: Option<OutputFormat>,
+    output_format: Option<OutputFormat>,
+
+    #[arg(
+        long,
+        alias = "from",
+        help = "input format to use, if not provided deduced from extension"
+    )]
+    input_format: Option<InputFormat>,
 }
 impl ValueEnum for OutputFormat {
     fn value_variants<'a>() -> &'a [Self] {
@@ -80,7 +89,12 @@ impl ValueEnum for OutputFormat {
 }
 fn do_render<R: RenderContext>(args: &CliArgs, r: &mut R) -> Result<()> {
     let mut input = BufReader::new(std::fs::File::open(args.input.to_owned())?);
-    let chart = api::load_chart(&mut input)?;
+    let chart = api::load_chart(
+        &mut input,
+        args.input_format
+            .or_else(|| InputFormat::from_path(args.input.as_ref()))
+            .ok_or(anyhow!("unknown input format"))?,
+    )?;
     let size = Size::new(args.width as f64, args.height as f64);
     chart.render(&Rect::from_points((0.0, 0.0), (size.width, size.height)), r)?;
     Ok(())
@@ -90,7 +104,7 @@ fn main() -> Result<()> {
     let args = CliArgs::parse();
 
     let size = Size::new(args.width as f64, args.height as f64);
-    match args.format.unwrap_or_else(|| {
+    match args.output_format.unwrap_or_else(|| {
         let p: &Path = args.output.as_ref();
         p.try_into().expect("unknown output format")
     }) {

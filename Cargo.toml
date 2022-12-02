@@ -16,4 +16,5 @@ piet-svg = "0.6.0"
 rlua = "0.19.4"
 scopeguard = "1.1.0"
 serde = { version = "1.0.148", features = ["derive"] }
+serde_yaml = "0.9.14"
 thiserror = "1.0.37"

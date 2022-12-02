@@ -157,7 +157,7 @@ impl BarChart {
                     .alignment(TextAlignment::End)
                     .font(font.to_owned())
                     .transform(Affine::translate((
-                        lbl.offset.x,
+                        lbl.offset.x - margins.x,
                         info.area.max_y() - lbl.offset.y,
                     ))),
             )
@@ -218,7 +218,7 @@ impl ChartType for BarChart {
         }
 
         for txt in self.calc_labels(&info.font(), &draw_info, &info.margins())? {
-            r.render_text((area.min_x(), area.min_y()), &txt)?;
+            r.render_text((area.min_x(), 0.0), &txt)?;
         }
 
         Ok(())
