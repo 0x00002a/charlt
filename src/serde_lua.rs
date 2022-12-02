@@ -265,39 +265,26 @@ impl<'de, 'lua> de::Deserializer<'de> for Deserializer<'lua> {
     tuple_struct map struct enum identifier ignored_any}
 }
 
-struct Serializer<L>
-where
-    L: Borrow<Lua>,
-{
-    lua: L,
+struct Serializer<'lua> {
+    lua: rlua::Context<'lua>,
 }
 
-impl<L> Serializer<L>
-where
-    L: Borrow<Lua>,
-{
-    fn new(lua: L) -> Self {
+impl<'lua> Serializer<'lua> {
+    fn new(lua: rlua::Context<'lua>) -> Self {
         Self { lua }
     }
 
-    fn to_lua<'lua, C: rlua::ToLua<'lua>>(self, v: C) -> Result<Value<'lua>, DeErr> {
-        Ok(self.lua.borrow().context(move |c| v.to_lua(c))?)
-    }
-}
-impl Default for Serializer<Lua> {
-    fn default() -> Self {
-        Self {
-            lua: rlua::Lua::new(),
-        }
+    fn to_lua<C: rlua::ToLua<'lua>>(self, v: C) -> Result<Value<'lua>, DeErr> {
+        Ok(v.to_lua(self.lua)?)
     }
 }
 
 struct SeqSerializer<'lua> {
     vals: Vec<Value<'lua>>,
-    lua: &'lua rlua::Lua,
+    ctx: rlua::Context<'lua>,
 }
 
-impl<'ser, 'lua> ser::SerializeSeq for SeqSerializer<'lua> {
+impl<'lua> ser::SerializeSeq for SeqSerializer<'lua> {
     type Ok = Value<'lua>;
     type Error = DeErr;
 
@@ -305,19 +292,20 @@ impl<'ser, 'lua> ser::SerializeSeq for SeqSerializer<'lua> {
     where
         T: serde::Serialize,
     {
-        self.vals.push(value.serialize(&Serializer::default())?);
+        self.vals
+            .push(value.serialize(Serializer::new(self.ctx.clone()))?);
         Ok(())
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        let mut tbl = self.lua.context(|lua| {
-            lua.create_table_from(self.vals.into_iter().enumerate().map(|(k, v)| (k + 1, v)))
-        })?;
+        let tbl = self
+            .ctx
+            .create_table_from(self.vals.into_iter().enumerate().map(|(k, v)| (k + 1, v)))?;
         Ok(Value::Table(tbl))
     }
 }
-impl<'ser, 'lua> ser::SerializeTuple for SeqSerializer<'lua> {
-    type Ok = Value<'lua>;
+impl<'a> ser::SerializeTuple for SeqSerializer<'a> {
+    type Ok = Value<'a>;
     type Error = DeErr;
 
     fn serialize_element<T: ?Sized>(&mut self, value: &T) -> Result<(), Self::Error>
@@ -331,7 +319,7 @@ impl<'ser, 'lua> ser::SerializeTuple for SeqSerializer<'lua> {
         <Self as ser::SerializeSeq>::end(self)
     }
 }
-impl<'ser, 'lua> ser::SerializeTupleStruct for SeqSerializer<'lua> {
+impl<'lua> ser::SerializeTupleStruct for SeqSerializer<'lua> {
     type Ok = Value<'lua>;
     type Error = DeErr;
 
@@ -346,7 +334,7 @@ impl<'ser, 'lua> ser::SerializeTupleStruct for SeqSerializer<'lua> {
         <Self as ser::SerializeSeq>::end(self)
     }
 }
-impl<'ser, 'lua> ser::SerializeTupleVariant for SeqSerializer<'lua> {
+impl<'lua> ser::SerializeTupleVariant for SeqSerializer<'lua> {
     type Ok = Value<'lua>;
     type Error = DeErr;
 
@@ -362,7 +350,7 @@ impl<'ser, 'lua> ser::SerializeTupleVariant for SeqSerializer<'lua> {
     }
 }
 struct MapSerialize<'lua> {
-    lua: &'lua rlua::Lua,
+    lua: rlua::Context<'lua>,
     keys: Vec<Value<'lua>>,
     values: Vec<Value<'lua>>,
 }
@@ -375,7 +363,7 @@ impl<'lua> ser::SerializeMap for MapSerialize<'lua> {
         T: serde::Serialize,
     {
         self.keys
-            .push(key.serialize(&Serializer::new(self.lua.clone()))?);
+            .push(key.serialize(Serializer::new(self.lua.clone()))?);
         Ok(())
     }
 
@@ -384,14 +372,14 @@ impl<'lua> ser::SerializeMap for MapSerialize<'lua> {
         T: serde::Serialize,
     {
         self.values
-            .push(value.serialize(&Serializer::new(self.lua.clone()))?);
+            .push(value.serialize(Serializer::new(self.lua.clone()))?);
         Ok(())
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        Ok(Value::Table(self.lua.context(|c| {
-            c.create_table_from(self.keys.into_iter().zip(self.values.into_iter()))
-        })?))
+        Ok(Value::Table(self.lua.create_table_from(
+            self.keys.into_iter().zip(self.values.into_iter()),
+        )?))
     }
 }
 impl<'lua> ser::SerializeStruct for MapSerialize<'lua> {
@@ -437,10 +425,7 @@ impl<'lua> ser::SerializeStructVariant for MapSerialize<'lua> {
     }
 }
 
-impl<'ser, 'lua, L> serde::ser::Serializer for &'lua Serializer<L>
-where
-    L: Borrow<Lua>,
-{
+impl<'lua> serde::ser::Serializer for Serializer<'lua> {
     type Ok = Value<'lua>;
 
     type Error = DeErr;
@@ -572,7 +557,7 @@ where
         vals.reserve(len.unwrap_or(0));
         Ok(SeqSerializer {
             vals,
-            lua: self.lua.borrow(),
+            ctx: self.lua.clone(),
         })
     }
 
@@ -607,7 +592,11 @@ where
         name: &'static str,
         len: usize,
     ) -> Result<Self::SerializeStruct, Self::Error> {
-        todo!()
+        Ok(MapSerialize {
+            lua: self.lua.clone(),
+            keys: Vec::with_capacity(len),
+            values: Vec::with_capacity(len),
+        })
     }
 
     fn serialize_struct_variant(
