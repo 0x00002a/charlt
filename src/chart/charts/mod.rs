@@ -80,10 +80,19 @@ mod tests {
 
     #[test]
     fn test_step_adjust() {
-        let steps = XY::new(5 as u32, 5 as u32);
-        let area = Rect::new(0.0, 0.0, 9.0, 9.0);
-        let adjusted = step_adjust(&area, &steps);
-        assert_eq!(adjusted.width(), 10.0);
-        assert_eq!(adjusted.height(), 10.0);
+        let inputs = vec![(9.0, 9.0), (9.0, 9.0)];
+        let muls = vec![(5u32, 5u32), (1u32, 1u32)];
+        let expected = vec![(10.0, 10.0), (9.0, 9.0)];
+        for i in 0..inputs.len() {
+            let steps = XY::new(muls[i].0, muls[i].1);
+            let area = Rect::new(0.0, 0.0, inputs[i].0, inputs[i].1);
+            let adjusted = step_adjust(&area, &steps);
+            assert_eq!(
+                (adjusted.width(), adjusted.height()),
+                expected[i],
+                "non-matching: {}",
+                adjusted
+            );
+        }
     }
 }

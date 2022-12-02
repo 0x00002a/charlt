@@ -48,7 +48,11 @@ impl DrawingInfo {
         let nb_blocks = datasets.len() as f64 * inner_len;
         let free_width = area.width() - (datasets.len() as f64 - 1.0) * spacing;
         if free_width < nb_blocks {
-            return Err(render::Error::NotEnoughSpace(nb_blocks, free_width));
+            return Err(render::Error::NotEnoughSpace(
+                nb_blocks,
+                free_width,
+                "free width for blocks".to_owned(),
+            ));
         }
         let block_w = free_width / nb_blocks;
         let max_val = datasets
@@ -66,7 +70,8 @@ impl DrawingInfo {
         })
     }
     fn block_rect(&self, dataset: usize, num: usize, v: f64) -> Rect {
-        let start_x = num as f64 * self.block_gap() + dataset as f64 * self.block_w;
+        let start_x =
+            num as f64 * self.block_gap() + dataset as f64 * self.block_w + self.area.min_x();
         let start_y = self.area.min_y();
         Rect::new(
             start_x,
@@ -146,6 +151,7 @@ impl BarChart {
             return Err(render::Error::NotEnoughSpace(
                 self.steps as f64,
                 info.area.height(),
+                "for vertical labels".to_owned(),
             ));
         }
         let steps: Vec<_> = (0..info.area.height() as u64)
@@ -175,7 +181,6 @@ impl ChartType for BarChart {
         r: &mut R,
     ) -> Result<()> {
         let datasets = &info.datasets;
-        let draw_info = DrawingInfo::new(datasets, area.to_owned(), self.spacing())?;
         let label_font = &info.font();
         let fam = label_font.family.to_owned().to_family(r)?;
         let margin = Into::<Point>::into(info.margins()) + (20.0, 20.0);
@@ -187,12 +192,13 @@ impl ChartType for BarChart {
             .size();
 
         let inner = Rect::new(
-            area.x0 + char_dims.height + char_dims.width * 4.0 + margin.x,
-            area.y0 + margin.y,
-            area.x1 - margin.x,
-            area.y1 - char_dims.height * 3.0 - margin.y,
+            (area.x0 + char_dims.height + char_dims.width * 4.0 + margin.x).floor(),
+            (area.y0 + margin.y).floor(),
+            (area.x1 - margin.x).floor(),
+            (area.y1 - char_dims.height * 3.0 - margin.y).floor(),
         );
         let area = step_adjust(&inner, &XY::new(1 as u32, self.steps));
+        let draw_info = DrawingInfo::new(datasets, area.clone(), self.spacing())?;
         r.with_restore(|r| -> Result<()> {
             let to_mid = Affine::translate(area.center().to_vec2());
             r.transform(to_mid * Affine::FLIP_Y * to_mid.inverse());
@@ -207,15 +213,16 @@ impl ChartType for BarChart {
                 }
             }
 
-            for line in mk_grids(&XY::new(true, true), &XY::new(vec![0], vec![0]), &area) {
-                let b = r.solid_brush(Colour::BLACK);
-                r.stroke(line, &b, 2.0);
-            }
             Ok(())
         })??;
 
+        for line in mk_grids(&XY::new(true, true), &XY::new(vec![0], vec![0]), &area) {
+            let b = r.solid_brush(Colour::BLACK);
+            r.stroke(line, &b, 2.0);
+        }
+
         for txt in self.calc_labels(&info.font(), &draw_info, &info.margins())? {
-            r.render_text((0.0, 0.0), &txt)?;
+            r.render_text((area.min_x(), area.min_y()), &txt)?;
         }
 
         Ok(())
