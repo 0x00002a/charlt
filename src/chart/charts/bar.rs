@@ -122,7 +122,7 @@ impl BarChart {
         info: &DrawingInfo,
         margins: &XY<f64>,
     ) -> Result<Vec<TextInfo>> {
-        if info.nb_blocks != self.categories.len() as f64 {
+        if info.inner_len != self.categories.len() as f64 {
             return Err(render::Error::InvalidDatasets(format!(
                 "categories and number of blocks do not match {} != {}",
                 self.categories.len(),
@@ -136,7 +136,10 @@ impl BarChart {
                 TextInfo::new(cat.to_owned())
                     .font(font.to_owned())
                     .alignment(TextAlignment::Center)
-                    .transform(Affine::translate((xstart.midpoint(xend).x, -margins.y))),
+                    .transform(Affine::translate((
+                        xstart.midpoint(xend).x,
+                        info.area.max_y() + margins.y,
+                    ))),
             )
         }
         if info.area.height() < self.steps as f64 {
@@ -154,7 +157,7 @@ impl BarChart {
                 TextInfo::new(pt.y.to_string())
                     .alignment(TextAlignment::End)
                     .font(font.to_owned())
-                    .transform(Affine::translate(pt.to_vec2())),
+                    .transform(Affine::translate((pt.x, info.area.max_y() - pt.y))),
             )
         }
         Ok(out)
