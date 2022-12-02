@@ -74,10 +74,53 @@ fn mk_grids(grid: &XY<bool>, steps: &XY<Vec<u64>>, bounds: &Rect) -> Vec<Line> {
     out
 }
 
+#[derive(PartialEq, Clone)]
+struct StepLabel {
+    value: f64,
+    offset: f64,
+}
+
+impl StepLabel {
+    fn new(value: f64, offset: f64) -> Self {
+        Self { value, offset }
+    }
+}
+
+fn decide_steps(len: f64, min_val: f64, max_val: f64, min_gap: f64) -> Vec<StepLabel> {
+    let range = max_val - min_val;
+    const STEP_DIVS: [f64; 5] = [50.0, 10.0, 5.0, 2.0, 1.0];
+    let step = STEP_DIVS
+        .iter()
+        .find(|s| (range / **s) > min_gap)
+        .unwrap_or(&range)
+        .to_owned();
+
+    todo!()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    #[test]
+    fn test_decide_steps() {
+        let inputs = vec![(100.0, 0.0, 500.0, 10.0)];
+        let expected = vec![vec![
+            StepLabel::new(0.0, 0.0),
+            StepLabel::new(500.0, 100.0),
+            StepLabel::new(100.0, 20.0),
+            StepLabel::new(200.0, 40.0),
+            StepLabel::new(300.0, 60.0),
+            StepLabel::new(400.0, 80.0),
+        ]];
+        for i in 0..inputs.len() {
+            let (len, min_val, max_val, min_gap) = inputs[i];
+            let output = decide_steps(len, min_val, max_val, min_gap);
+            for v in &expected[i] {
+                assert!(output.contains(v));
+            }
+        }
+    }
     #[test]
     fn test_step_adjust() {
         let inputs = vec![(9.0, 9.0), (9.0, 9.0)];
