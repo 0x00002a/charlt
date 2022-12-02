@@ -142,6 +142,8 @@ pub enum Error {
     Piet(piet::Error),
     #[error("not enough space, need at least {0} got {0}")]
     NotEnoughSpace(f64, f64),
+    #[error("datasets are invalid {0}")]
+    InvalidDatasets(String),
 }
 unsafe impl Send for Error {}
 unsafe impl Sync for Error {}
