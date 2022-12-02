@@ -15,6 +15,7 @@ pub struct BarChart {
 }
 
 impl BarChart {
+    #[allow(unused)]
     pub fn new() -> Self {
         Self { spacing: None }
     }
@@ -22,7 +23,7 @@ impl BarChart {
     fn spacing(&self) -> f64 {
         self.spacing.to_owned().unwrap_or(10.0)
     }
-    fn calc_drawing_info(&self, datasets: &Vec<super::Dataset<f64>>, area: &Rect) {}
+    fn calc_drawing_info(&self, _datasets: &Vec<super::Dataset<f64>>, _area: &Rect) {}
     fn calc_blocks(
         &self,
         datasets: &Vec<super::Dataset<f64>>,
@@ -90,7 +91,7 @@ impl ChartType for BarChart {
         &self,
         datasets: &Vec<super::Dataset<Self::DataPoint>>,
         area: &kurbo::Rect,
-        lbl_font: &FontInfo,
+        _lbl_font: &FontInfo,
         r: &mut R,
     ) -> Result<()> {
         r.with_restore(|r| {
@@ -113,8 +114,9 @@ impl ChartType for BarChart {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::chart::charts::to_dataset;
+
+    use super::*;
 
     #[test]
     fn test_bar_allocation() {

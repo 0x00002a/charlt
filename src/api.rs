@@ -1,4 +1,4 @@
-use std::io::{BufReader, Read};
+use std::io::{Read};
 
 use anyhow::Result;
 use rlua::{Lua, StdLib};

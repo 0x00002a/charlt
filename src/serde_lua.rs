@@ -1,6 +1,6 @@
-use rlua::{Lua, Value};
+use rlua::{Value};
 use serde::{
-    de::{self, SeqAccess},
+    de::{self},
     Deserialize,
 };
 use thiserror::Error;
@@ -121,14 +121,14 @@ impl<'de, 'lua> de::VariantAccess<'de> for Enum<'lua> {
         todo!()
     }
 
-    fn newtype_variant_seed<T>(self, seed: T) -> Result<T::Value, Self::Error>
+    fn newtype_variant_seed<T>(self, _seed: T) -> Result<T::Value, Self::Error>
     where
         T: de::DeserializeSeed<'de>,
     {
         todo!()
     }
 
-    fn tuple_variant<V>(self, len: usize, visitor: V) -> Result<V::Value, Self::Error>
+    fn tuple_variant<V>(self, _len: usize, _visitor: V) -> Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
     {
@@ -137,8 +137,8 @@ impl<'de, 'lua> de::VariantAccess<'de> for Enum<'lua> {
 
     fn struct_variant<V>(
         self,
-        fields: &'static [&'static str],
-        visitor: V,
+        _fields: &'static [&'static str],
+        _visitor: V,
     ) -> Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
@@ -436,14 +436,14 @@ impl<'de, 'lua> de::Deserializer<'de> for Deserializer<'lua> {
         }
     }
 
-    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_bytes<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
     {
         unimplemented!()
     }
 
-    fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    fn deserialize_byte_buf<V>(self, _visitor: V) -> Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
     {

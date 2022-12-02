@@ -1,6 +1,6 @@
 use std::ops::{Deref, DerefMut};
 
-use kurbo::Shape;
+
 
 pub trait Holds {
     type Item;

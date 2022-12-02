@@ -1,25 +1,16 @@
 pub mod bar;
 pub mod xyscatter;
 
-use std::{f64::consts::PI, rc::Rc};
-
-use kurbo::{Affine, BezPath, Line, Point, Rect, Shape, Size, TranslateScale, Vec2};
-use piet::{RenderContext, Text, TextAlignment, TextLayout, TextLayoutBuilder};
-use rlua::{FromLua, Value};
-use scopeguard::defer;
 use serde::Deserialize;
 
-use crate::{
-    render::{self, colours, Colour, FontInfo, RenderContextExt, TextInfo},
-    utils::RoundMul,
-};
+use crate::render::{self, Colour};
 
 use self::{
     bar::BarPoint,
     xyscatter::{XYPoint, XYScatter},
 };
 
-use super::{Chart, ChartType, Dataset, DatasetMeta};
+use super::{Chart, Dataset, DatasetMeta};
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(tag = "type")]
@@ -32,6 +23,7 @@ pub enum Charts {
 
 type Result<T> = std::result::Result<T, render::Error>;
 
+#[allow(unused)]
 fn to_dataset<T: Clone>(vs: &Vec<Vec<T>>) -> Vec<Dataset<T>> {
     vs.iter()
         .map(|p| Dataset {

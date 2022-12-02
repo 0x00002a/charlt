@@ -1,11 +1,10 @@
 use std::{
-    fs::File,
-    io::{BufReader, BufWriter},
+    io::{BufReader},
 };
 
 use anyhow::Result;
 use clap::{builder::PossibleValue, Parser, ValueEnum};
-use kurbo::{Rect, Size, TranslateScale};
+use kurbo::{Rect, Size};
 use piet::RenderContext;
 use render::Render;
 use serde::{Deserialize, Serialize};
@@ -16,7 +15,7 @@ mod render;
 mod serde_lua;
 mod utils;
 
-use std::path::{Path, PathBuf};
+use std::path::{Path};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 enum OutputFormat {
