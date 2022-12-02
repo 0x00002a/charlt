@@ -1,22 +1,13 @@
 mod charts;
-mod fromlua;
 mod render;
 use kurbo::Rect;
 use piet::RenderContext;
-use serde::{
-    de::{self, DeserializeOwned},
-    Deserialize,
-};
-use std::ops::{Deref, DerefMut};
+use serde::Deserialize;
 
 pub use charts::*;
-pub use fromlua::*;
 pub use render::*;
 
-use crate::{
-    render::{Colour, FontInfo},
-    utils::Holds,
-};
+use crate::render::{Colour, FontInfo};
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct DatasetMeta {
