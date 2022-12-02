@@ -6,6 +6,7 @@ use super::{decide_steps, mk_grids, step_adjust, Result, StepLabel, XY};
 use crate::{
     chart::{ChartInfo, ChartType, Dataset, DatasetMeta},
     render::{self, Colour, FontInfo, RenderContextExt, TextInfo},
+    utils::RoundMul,
 };
 
 pub type BarPoint = f64;
@@ -22,6 +23,13 @@ struct DrawingInfo {
     spacing: f64,
     area: Rect,
     nb_blocks: f64,
+}
+fn max_val(datasets: &Vec<Dataset<f64>>) -> f64 {
+    datasets
+        .iter()
+        .flat_map(|dset| dset.values.iter().map(|v| v.ceil() as u64))
+        .max()
+        .unwrap() as f64
 }
 impl DrawingInfo {
     fn block_gap(&self) -> f64 {
@@ -54,12 +62,8 @@ impl DrawingInfo {
                 "free width for blocks".to_owned(),
             ));
         }
+        let max_val = max_val(datasets);
         let block_w = free_width / (nb_blocks * nb_cats);
-        let max_val = datasets
-            .iter()
-            .flat_map(|dset| dset.values.iter().map(|v| v.ceil() as u64))
-            .max()
-            .unwrap() as f64;
         Ok(Self {
             block_w,
             nb_cats,
@@ -203,7 +207,7 @@ impl ChartType for BarChart {
             (area.x1 - margin.x).floor(),
             (area.y1 - char_dims.height * 3.0 - margin.y).floor(),
         );
-        let area = inner;
+        let area = &inner;
         let draw_info = DrawingInfo::new(datasets, area.clone(), self.spacing())?;
         r.with_restore(|r| -> Result<()> {
             let to_mid = Affine::translate(area.center().to_vec2());
@@ -222,7 +226,16 @@ impl ChartType for BarChart {
             Ok(())
         })??;
 
-        for line in mk_grids(&XY::new(true, true), &XY::new(vec![0], vec![0]), &area) {
+        let max_step_y = decide_steps(inner.height(), 0.0, max_val(datasets), self.step as u64)
+            .into_iter()
+            .map(|s| s.offset.ceil() as u64)
+            .max()
+            .unwrap() as f64;
+        for line in mk_grids(
+            &XY::new(true, true),
+            &XY::new(vec![0], vec![0]),
+            &Rect::new(inner.x0, inner.y1 - max_step_y, inner.x1, inner.y1),
+        ) {
             let b = r.solid_brush(Colour::BLACK);
             r.stroke(line, &b, 2.0);
         }
