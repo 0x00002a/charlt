@@ -1,4 +1,3 @@
-
 use kurbo::Rect;
 use piet::RenderContext;
 
@@ -12,12 +11,7 @@ use super::*;
 impl<C: ChartType> Render for Chart<C, C::DataPoint> {
     type Error = render::Error;
     fn render<P: RenderContext>(&self, area: &Rect, r: &mut P) -> Result<(), render::Error> {
-        self.extra.render_datasets(
-            &self.datasets,
-            area,
-            &self.font.clone().unwrap_or_default(),
-            r,
-        )
+        self.extra.render_datasets(&self.info, area, r)
     }
 }
 impl Render for Charts {

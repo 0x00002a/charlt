@@ -17,6 +17,27 @@ pub struct DatasetMeta {
     #[serde(default = "default_line_thickness")]
     thickness: f64,
 }
+
+#[derive(Clone, Debug, Deserialize)]
+struct XY<T> {
+    x: T,
+    y: T,
+}
+
+impl<T> XY<T> {
+    pub fn new<T1: Into<T>, T2: Into<T>>(x: T1, y: T2) -> Self {
+        Self {
+            x: x.into(),
+            y: y.into(),
+        }
+    }
+}
+impl From<XY<f64>> for kurbo::Point {
+    fn from(pt: XY<f64>) -> Self {
+        Self::new(pt.x, pt.y)
+    }
+}
+
 #[derive(Clone, Debug, Deserialize)]
 pub struct Dataset<T: Clone> {
     values: Vec<T>,
@@ -27,22 +48,46 @@ fn default_line_thickness() -> f64 {
     return 1.5;
 }
 #[derive(Clone, Debug, Deserialize)]
-pub struct Chart<C, Pt: Clone> {
-    pub datasets: Vec<Dataset<Pt>>,
-
-    #[serde(flatten)]
-    pub extra: C,
-
-    pub font: Option<FontInfo>,
+struct ChartInfo<Pt: Clone> {
+    datasets: Vec<Dataset<Pt>>,
+    font: Option<FontInfo>,
+    margins: Option<XY<Option<f64>>>,
 }
-pub trait ChartType: Clone {
+impl<Pt: Clone> ChartInfo<Pt> {
+    fn font(&self) -> FontInfo {
+        self.font.to_owned().unwrap_or_default()
+    }
+
+    fn margins(&self) -> XY<f64> {
+        const DEFAULT: XY<f64> = {
+            let x = 3.0;
+            let y = 5.0;
+            XY { x, y }
+        };
+        self.margins
+            .to_owned()
+            .map(|xy| XY {
+                x: xy.x.unwrap_or(DEFAULT.x),
+                y: xy.y.unwrap_or(DEFAULT.y),
+            })
+            .unwrap_or(DEFAULT)
+    }
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct Chart<C, Pt: Clone> {
+    #[serde(flatten)]
+    extra: C,
+    #[serde(flatten)]
+    info: ChartInfo<Pt>,
+}
+trait ChartType: Clone {
     type DataPoint: Clone;
     const NAME: &'static str;
     fn render_datasets<R: RenderContext>(
         &self,
-        datasets: &Vec<Dataset<Self::DataPoint>>,
+        info: &ChartInfo<Self::DataPoint>,
         area: &Rect,
-        label_font: &FontInfo,
         r: &mut R,
     ) -> Result<(), crate::render::Error>;
 }

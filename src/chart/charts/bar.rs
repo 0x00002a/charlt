@@ -1,10 +1,10 @@
-use kurbo::{Affine, Rect};
-use piet::RenderContext;
+use kurbo::{Affine, Line, Point, Rect, Shape};
+use piet::{RenderContext, TextAlignment};
 use serde::Deserialize;
 
-use super::Result;
+use super::{Result, XY};
 use crate::{
-    chart::{ChartType, Dataset, DatasetMeta},
+    chart::{ChartInfo, ChartType, Dataset, DatasetMeta},
     render::{self, FontInfo, RenderContextExt, TextInfo},
 };
 
@@ -64,6 +64,21 @@ impl DrawingInfo {
             nb_blocks,
         })
     }
+    fn block_rect(&self, dataset: usize, num: usize, v: f64) -> Rect {
+        let start_x = dataset as f64 * self.block_gap() + num as f64 * self.block_w;
+        let start_y = self.area.min_y();
+        Rect::new(
+            start_x,
+            start_y,
+            start_x + self.block_w,
+            start_y + self.block_h(v),
+        )
+    }
+    fn cat_xbounds(&self, cat: usize) -> (Point, Point) {
+        let start_x = cat as f64 * self.block_gap();
+        let end_x = start_x + self.inner_len * self.block_w;
+        ((start_x, 0.0).into(), (end_x, 0.0).into())
+    }
 }
 
 impl BarChart {
@@ -92,24 +107,37 @@ impl BarChart {
                     dset.values
                         .iter()
                         .enumerate()
-                        .map(|(i, v)| {
-                            let start_x =
-                                i as f64 * info.block_gap() + set_num as f64 * info.block_w;
-                            let start_y = info.area.min_y();
-                            Rect::new(
-                                start_x,
-                                start_y,
-                                start_x + info.block_w,
-                                start_y + info.block_h(v.to_owned()),
-                            )
-                        })
+                        .map(|(i, v)| info.block_rect(set_num, i, v.to_owned()))
                         .collect::<Vec<_>>(),
                 )
             })
             .collect();
         Ok(blocks)
     }
-    fn calc_labels(&self, info: &DrawingInfo) -> Result<TextInfo> {
+    fn calc_labels(
+        &self,
+        font: &FontInfo,
+        info: &DrawingInfo,
+        margins: &XY<f64>,
+    ) -> Result<TextInfo> {
+        if info.nb_blocks != self.categories.len() as f64 {
+            return Err(render::Error::InvalidDatasets(format!(
+                "categories and number of blocks do not match {} != {}",
+                self.categories.len(),
+                info.nb_blocks
+            )));
+        }
+        let mut out = Vec::with_capacity(self.categories.len());
+        for (group, cat) in self.categories.iter().enumerate() {
+            let (xstart, xend) = info.cat_xbounds(group);
+            out.push(
+                TextInfo::new(cat.to_owned())
+                    .font(font.to_owned())
+                    .alignment(TextAlignment::Center)
+                    .transform(Affine::translate((xstart.midpoint(xend).x, -margins.y))),
+            )
+        }
+
         todo!()
     }
 }
@@ -120,12 +148,12 @@ impl ChartType for BarChart {
 
     fn render_datasets<R: RenderContext>(
         &self,
-        datasets: &Vec<super::Dataset<Self::DataPoint>>,
+        info: &ChartInfo<f64>,
         area: &kurbo::Rect,
-        _lbl_font: &FontInfo,
         r: &mut R,
     ) -> Result<()> {
         r.with_restore(|r| {
+            let datasets = &info.datasets;
             let to_mid = Affine::translate(area.center().to_vec2());
             r.transform(to_mid * Affine::FLIP_Y * to_mid.inverse());
 

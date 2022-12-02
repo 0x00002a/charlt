@@ -1,45 +1,25 @@
 use std::f64::consts::PI;
 
 use crate::{
-    chart::{ChartType, Dataset, DatasetMeta},
+    chart::{ChartInfo, ChartType, Dataset, DatasetMeta},
     render::{self, FontInfo, RenderContextExt, TextInfo},
     utils::RoundMul,
 };
 
-use super::Result;
+use super::{Result, XY};
 use kurbo::{Affine, BezPath, Line, Point, Rect, Shape, Size, TranslateScale};
 use piet::{RenderContext, Text, TextAlignment, TextLayout, TextLayoutBuilder};
 use serde::Deserialize;
 
 #[derive(Clone, Debug, Deserialize)]
-pub struct XYPoint<T> {
-    x: T,
-    y: T,
-}
-
-impl<T> XYPoint<T> {
-    pub fn new<T1: Into<T>, T2: Into<T>>(x: T1, y: T2) -> Self {
-        Self {
-            x: x.into(),
-            y: y.into(),
-        }
-    }
-}
-impl From<XYPoint<f64>> for kurbo::Point {
-    fn from(pt: XYPoint<f64>) -> Self {
-        Self::new(pt.x, pt.y)
-    }
-}
-
-#[derive(Clone, Debug, Deserialize)]
 pub struct XYScatter {
-    axis: XYPoint<String>,
-    steps: XYPoint<u32>,
-    grid: Option<XYPoint<bool>>,
-    margin: Option<XYPoint<f64>>,
+    axis: XY<String>,
+    steps: XY<u32>,
+    grid: Option<XY<bool>>,
+    margin: Option<XY<f64>>,
 }
 
-fn mk_grids(grid: &XYPoint<bool>, steps: &XYPoint<Vec<u64>>, bounds: &Rect) -> Vec<Line> {
+fn mk_grids(grid: &XY<bool>, steps: &XY<Vec<u64>>, bounds: &Rect) -> Vec<Line> {
     let mut out = Vec::new();
     let mut do_iter = |steps: &Vec<u64>, f: &dyn Fn(f64) -> ((f64, f64), (f64, f64))| {
         for pt in steps {
@@ -67,15 +47,13 @@ fn mk_grids(grid: &XYPoint<bool>, steps: &XYPoint<Vec<u64>>, bounds: &Rect) -> V
     out
 }
 impl XYScatter {
-    fn margin(&self) -> XYPoint<f64> {
-        self.margin
-            .to_owned()
-            .unwrap_or(XYPoint { x: 4.0, y: 10.0 })
+    fn margin(&self) -> XY<f64> {
+        self.margin.to_owned().unwrap_or(XY { x: 4.0, y: 10.0 })
     }
     fn mk_labels<R: RenderContext>(
         &self,
-        steps: &XYPoint<Vec<u64>>,
-        xylines: &XYPoint<f64>,
+        steps: &XY<Vec<u64>>,
+        xylines: &XY<f64>,
         lbl_font: &FontInfo,
         origin: &Point,
         r: &mut R,
@@ -118,7 +96,7 @@ impl XYScatter {
     }
     fn calc_paths(
         &self,
-        datasets: &Vec<Dataset<XYPoint<f64>>>,
+        datasets: &Vec<Dataset<XY<f64>>>,
         area: &Rect,
     ) -> Result<Vec<(DatasetMeta, BezPath)>> {
         let paths: Vec<_> = datasets
@@ -158,7 +136,7 @@ impl XYScatter {
             .collect();
         Ok(paths)
     }
-    fn calc_steps(&self, area: &Rect) -> XYPoint<Vec<u64>> {
+    fn calc_steps(&self, area: &Rect) -> XY<Vec<u64>> {
         let (step_x, step_y) = (self.steps.x as f64, self.steps.y as f64);
         let steps_y: Vec<_> = (0..(area.height() + step_y) as u64)
             .step_by(step_y as usize)
@@ -166,11 +144,11 @@ impl XYScatter {
         let steps_x: Vec<_> = (0..(area.width() + step_x) as u64)
             .step_by(step_x as usize)
             .collect();
-        XYPoint::new(steps_x, steps_y)
+        XY::new(steps_x, steps_y)
     }
     fn render_into<R: RenderContext>(
         &self,
-        datasets: &Vec<Dataset<XYPoint<f64>>>,
+        datasets: &Vec<Dataset<XY<f64>>>,
         area: &kurbo::Rect,
         label_font: &FontInfo,
         r: &mut R,
@@ -179,11 +157,11 @@ impl XYScatter {
         let steps_x = steps.x.clone();
         let steps_y = steps.y.clone();
 
-        let steps = XYPoint {
+        let steps = XY {
             x: steps_x,
             y: steps_y,
         };
-        let xylines = XYPoint {
+        let xylines = XY {
             x: area.min_x(),
             y: area.max_y(),
         };
@@ -209,7 +187,7 @@ impl XYScatter {
         )?;
 
         for line in mk_grids(
-            &self.grid.clone().unwrap_or(XYPoint { x: false, y: true }),
+            &self.grid.clone().unwrap_or(XY { x: false, y: true }),
             &steps,
             area,
         ) {
@@ -218,8 +196,8 @@ impl XYScatter {
         }
 
         let axis = mk_grids(
-            &XYPoint::new(true, true),
-            &XYPoint::new(vec![steps.x[0]], vec![steps.y[0].to_owned()]),
+            &XY::new(true, true),
+            &XY::new(vec![steps.x[0]], vec![steps.y[0].to_owned()]),
             area,
         )
         .into_iter()
@@ -246,7 +224,7 @@ impl XYScatter {
         step_adjust(area, &self.steps)
     }
 }
-fn step_adjust(area: &Rect, steps: &XYPoint<u32>) -> Rect {
+fn step_adjust(area: &Rect, steps: &XY<u32>) -> Rect {
     Rect::new(
         area.min_x(),
         area.max_y() - area.height().ceil_mul(steps.y as f64),
@@ -256,16 +234,17 @@ fn step_adjust(area: &Rect, steps: &XYPoint<u32>) -> Rect {
 }
 
 impl ChartType for XYScatter {
-    type DataPoint = XYPoint<f64>;
+    type DataPoint = XY<f64>;
     const NAME: &'static str = "xy-scatter";
 
     fn render_datasets<R: RenderContext>(
         &self,
-        datasets: &Vec<Dataset<XYPoint<f64>>>,
+        info: &ChartInfo<Self::DataPoint>,
         area: &kurbo::Rect,
-        label_font: &FontInfo,
         r: &mut R,
     ) -> Result<()> {
+        let label_font = &info.font();
+        let datasets = &info.datasets;
         let fam = label_font.family.to_owned().to_family(r)?;
         let margin = Into::<Point>::into(self.margin()) + (20.0, 20.0);
         let char_dims = r
@@ -295,7 +274,7 @@ mod tests {
 
     #[test]
     fn test_step_adjust() {
-        let steps = XYPoint::new(5 as u32, 5 as u32);
+        let steps = XY::new(5 as u32, 5 as u32);
         let area = Rect::new(0.0, 0.0, 9.0, 9.0);
         let adjusted = step_adjust(&area, &steps);
         assert_eq!(adjusted.width(), 10.0);
@@ -303,13 +282,13 @@ mod tests {
     }
     #[test]
     fn grids_with_uneven_offset() {
-        let steps = XYPoint::new(vec![0, 100, 200], vec![0, 10, 20]);
+        let steps = XY::new(vec![0, 100, 200], vec![0, 10, 20]);
         let areas = vec![
             Rect::new(0.0, 0.0, 200.0, 20.0),
             Rect::new(30.0, 22.0, 250.0, 47.0),
         ];
         for area in areas {
-            let grid_draw = XYPoint::new(false, true);
+            let grid_draw = XY::new(false, true);
             let grid = mk_grids(&grid_draw, &steps, &area);
             for line in &grid {
                 assert_eq!(line.p0.y, line.p1.y);
@@ -326,13 +305,13 @@ mod tests {
     #[test]
     fn paths_with_offset() {
         let datasets = to_dataset(&vec![vec![
-            XYPoint::new(0.0, 0.0),
-            XYPoint::new(10.0, 500.0),
-            XYPoint::new(20.0, 551.0),
+            XY::new(0.0, 0.0),
+            XY::new(10.0, 500.0),
+            XY::new(20.0, 551.0),
         ]]);
         let chart = XYScatter {
-            axis: XYPoint::new("x", "y"),
-            steps: XYPoint::new(10 as u32, 10 as u32),
+            axis: XY::new("x", "y"),
+            steps: XY::new(10 as u32, 10 as u32),
             grid: None,
             margin: None,
         };

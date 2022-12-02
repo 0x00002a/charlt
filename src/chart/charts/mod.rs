@@ -5,18 +5,14 @@ use serde::Deserialize;
 
 use crate::render::{self, Colour};
 
-use self::{
-    bar::BarPoint,
-    xyscatter::{XYPoint, XYScatter},
-};
-
-use super::{Chart, Dataset, DatasetMeta};
+use self::{bar::BarPoint, xyscatter::XYScatter};
+use super::{Chart, Dataset, DatasetMeta, XY};
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(tag = "type")]
 pub enum Charts {
     #[serde(rename = "xy-scatter")]
-    XYScatter(Chart<XYScatter, XYPoint<f64>>),
+    XYScatter(Chart<XYScatter, XY<f64>>),
     #[serde(rename = "bar")]
     Bar(Chart<bar::BarChart, BarPoint>),
 }
