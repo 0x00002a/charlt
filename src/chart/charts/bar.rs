@@ -66,7 +66,7 @@ impl DrawingInfo {
         })
     }
     fn block_rect(&self, dataset: usize, num: usize, v: f64) -> Rect {
-        let start_x = dataset as f64 * self.block_gap() + num as f64 * self.block_w;
+        let start_x = num as f64 * self.block_gap() + dataset as f64 * self.block_w;
         let start_y = self.area.min_y();
         Rect::new(
             start_x,
@@ -209,6 +209,24 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_cat_bounds() {
+        let area = Rect::new(0.0, 0.0, 12.0, 12.0);
+        let datasets = to_dataset(&vec![vec![0.0, 10.0], vec![2.0, 5.0]]);
+        let spacing = 2.0;
+        let info = DrawingInfo::new(&datasets, area.clone(), spacing).unwrap();
+        assert_eq!(
+            info.cat_xbounds(0),
+            ((0.0, 0.0).into(), (info.block_w * 2.0, 0.0).into())
+        );
+        assert_eq!(
+            info.cat_xbounds(1),
+            (
+                (info.block_gap(), 0.0).into(),
+                (info.block_w * 2.0 + info.block_gap(), 0.0).into()
+            )
+        );
+    }
+    #[test]
     fn test_bar_allocation() {
         let datasets = to_dataset(&vec![vec![0.0, 10.0], vec![2.0, 5.0]]);
         let mut chart = BarChart::new();
@@ -216,12 +234,7 @@ mod tests {
         let spacing = 2.0;
         chart.spacing = Some(spacing);
         let block_w = (area.width() - spacing) / 4.0 as f64;
-        let blocks = chart
-            .calc_blocks(
-                &datasets,
-                &DrawingInfo::new(&datasets, area.clone(), spacing).unwrap(),
-            )
-            .unwrap();
+        let info = DrawingInfo::new(&datasets, area.clone(), spacing).unwrap();
         let block_h = |v| area.height() / 10.0 * v;
         let expected = vec![
             vec![
@@ -243,10 +256,10 @@ mod tests {
                 ),
             ],
         ];
-        let rects = blocks.into_iter().map(|(_, rs)| rs).collect::<Vec<_>>();
         for i in 0..expected.len() {
             for n in 0..expected[i].len() {
-                assert_eq!(rects[i][n], expected[i][n], "rect: [{}][{}]", i, n);
+                let rect = info.block_rect(i, n, datasets[i].values[n]);
+                assert_eq!(rect, expected[i][n], "rect: [{}][{}]", i, n);
             }
         }
     }
