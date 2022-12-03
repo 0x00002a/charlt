@@ -90,7 +90,7 @@ impl DrawingInfo {
             start_y + self.block_h(v),
         );
         assert!(
-            self.area.union(r).area() <= self.area.area(),
+            self.area.union(r).area().floor() <= self.area.area().floor(),
             "block ({:?}) inside draw area ({:?})",
             r,
             self.area

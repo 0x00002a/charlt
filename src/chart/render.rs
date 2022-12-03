@@ -37,7 +37,7 @@ fn render_legend(
         let dot_b = r.solid_brush(Colour::BLACK);
         let margin = ch_h * 0.6;
         r.fill(
-            Rect::new(-ch_h, y - margin, max_x + margin, y + margin).to_rounded_rect(3.0),
+            Rect::new(-ch_h, y - margin, max_x + margin * 1.6, y + margin).to_rounded_rect(3.0),
             &pod_b,
         );
         let dot_r = ch_h * 0.2;
