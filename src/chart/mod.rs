@@ -98,9 +98,10 @@ pub trait ChartType: Clone {
     ) -> Result<(), crate::render::Error>;
 }
 mod serde_colour {
-    use serde::{Deserialize, Deserializer};
+    use serde::{de::Error, Deserialize, Deserializer};
 
     use crate::render::Colour;
+    use css_color_parser::Color;
 
     // The signature of a deserialize_with function must follow the pattern:
     //
@@ -114,6 +115,9 @@ mod serde_colour {
         D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        Colour::from_hex_str(&s).map_err(serde::de::Error::custom)
+        let c = s
+            .parse::<Color>()
+            .map_err(|e| D::Error::custom(e.to_string()))?;
+        Ok(Colour::rgba8(c.r, c.g, c.b, (c.a * 255.0).ceil() as u8))
     }
 }
