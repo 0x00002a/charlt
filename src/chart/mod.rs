@@ -12,7 +12,7 @@ use crate::render::{Colour, FontInfo};
 #[derive(Clone, Debug, Deserialize)]
 pub struct DatasetMeta {
     name: String,
-    #[serde(with = "serde_colour")]
+    #[serde(with = "serde_colour", alias = "color")]
     colour: Colour,
     #[serde(default = "default_line_thickness")]
     thickness: f64,
