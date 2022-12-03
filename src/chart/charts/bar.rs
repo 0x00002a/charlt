@@ -1,6 +1,6 @@
 use std::f64::consts::PI;
 
-use kurbo::{Affine, Line, Point, Rect, Shape};
+use kurbo::{Affine, Point, Rect};
 use piet::{RenderContext, Text, TextAlignment, TextLayout, TextLayoutBuilder};
 use serde::Deserialize;
 

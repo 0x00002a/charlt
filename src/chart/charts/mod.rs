@@ -5,13 +5,15 @@ use kurbo::{Line, Rect};
 use more_asserts::debug_assert_le;
 use serde::Deserialize;
 
-use crate::{
-    render::{self, Colour},
-    utils::RoundMul,
-};
+#[cfg(test)]
+use super::DatasetMeta;
+#[cfg(test)]
+use crate::render::Colour;
+
+use crate::{render, utils::RoundMul};
 
 use self::{bar::BarPoint, xyscatter::XYScatter};
-use super::{Chart, Dataset, DatasetMeta, XY};
+use super::{Chart, Dataset, XY};
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(tag = "type")]
@@ -24,16 +26,7 @@ pub enum Charts {
 
 type Result<T> = std::result::Result<T, render::Error>;
 
-fn step_adjust(area: &Rect, steps: &XY<u32>) -> Rect {
-    Rect::new(
-        area.min_x(),
-        area.max_y() - area.height().ceil_mul(steps.y as f64),
-        area.min_x() + area.width().ceil_mul(steps.x as f64),
-        area.max_y(),
-    )
-}
-
-#[allow(unused)]
+#[cfg(test)]
 fn to_dataset<T: Clone>(vs: &Vec<Vec<T>>) -> Vec<Dataset<T>> {
     vs.iter()
         .map(|p| Dataset {
@@ -149,23 +142,6 @@ mod tests {
             for v in &expected[i] {
                 assert!(output.contains(v), "{:?} contains {:?}", output, v);
             }
-        }
-    }
-    #[test]
-    fn test_step_adjust() {
-        let inputs = vec![(9.0, 9.0), (9.0, 9.0)];
-        let muls = vec![(5u32, 5u32), (1u32, 1u32)];
-        let expected = vec![(10.0, 10.0), (9.0, 9.0)];
-        for i in 0..inputs.len() {
-            let steps = XY::new(muls[i].0, muls[i].1);
-            let area = Rect::new(0.0, 0.0, inputs[i].0, inputs[i].1);
-            let adjusted = step_adjust(&area, &steps);
-            assert_eq!(
-                (adjusted.width(), adjusted.height()),
-                expected[i],
-                "non-matching: {}",
-                adjusted
-            );
         }
     }
 }
