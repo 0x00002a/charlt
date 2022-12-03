@@ -232,7 +232,12 @@ impl ChartType for XYScatter {
         });
         self.render_into(
             datasets,
-            &Rect::new(inner.x0, inner.y0, step_max.x, step_max.y),
+            &Rect::new(
+                inner.x0,
+                inner.y0,
+                inner.x0 + step_max.x,
+                inner.y0 + step_max.y,
+            ),
             label_font,
             r,
         )
