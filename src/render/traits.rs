@@ -1,5 +1,3 @@
-
-
 use anyhow::Result;
 use kurbo::{Affine, Point, Rect, Size};
 use piet::{RenderContext, Text, TextAlignment, TextLayout, TextLayoutBuilder};
@@ -47,6 +45,7 @@ impl<R: RenderContext> RenderContextExt for R {
             Some(TextAlignment::End) => {
                 Affine::translate((-txt.size().width, -txt.size().height / 2.0))
             }
+            Some(TextAlignment::Start) => Affine::translate((0.0, -txt.size().height / 2.0)),
             _ => Affine::IDENTITY,
         };
         self.save()?;
