@@ -2,11 +2,10 @@ use kurbo::{Affine, Line, Point, Rect, Shape};
 use piet::{RenderContext, Text, TextAlignment, TextLayout, TextLayoutBuilder};
 use serde::Deserialize;
 
-use super::{decide_steps, mk_grids, step_adjust, Result, StepLabel, XY};
+use super::{decide_steps, mk_grids, Result, StepLabel, XY};
 use crate::{
     chart::{ChartInfo, ChartType, Dataset, DatasetMeta},
     render::{self, Colour, FontInfo, RenderContextExt, TextInfo},
-    utils::RoundMul,
 };
 
 pub type BarPoint = f64;

@@ -19,7 +19,7 @@ pub struct DatasetMeta {
 }
 
 #[derive(Clone, Debug, Deserialize)]
-struct XY<T> {
+pub struct XY<T> {
     x: T,
     y: T,
 }

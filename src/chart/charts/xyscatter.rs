@@ -3,11 +3,10 @@ use std::f64::consts::PI;
 use crate::{
     chart::{ChartInfo, ChartType, Dataset, DatasetMeta},
     render::{self, FontInfo, RenderContextExt, TextInfo},
-    utils::RoundMul,
 };
 
 use super::{mk_grids, Result, XY};
-use kurbo::{Affine, BezPath, Line, Point, Rect, Shape, Size, TranslateScale};
+use kurbo::{Affine, BezPath, Point, Rect, Shape, Size, TranslateScale};
 use piet::{RenderContext, Text, TextAlignment, TextLayout, TextLayoutBuilder};
 use serde::Deserialize;
 
