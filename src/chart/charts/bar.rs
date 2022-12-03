@@ -16,6 +16,7 @@ pub struct BarChart {
     categories: Vec<String>,
     step: u32,
     lines: Option<bool>,
+    notch_width: Option<f64>,
 }
 struct DrawingInfo {
     block_w: f64,
@@ -110,7 +111,11 @@ impl BarChart {
             categories: Vec::default(),
             step: 10,
             lines: None,
+            notch_width: None,
         }
+    }
+    fn notch_width(&self) -> f64 {
+        self.notch_width.to_owned().unwrap_or(3.5)
     }
     fn lines(&self) -> bool {
         self.lines.to_owned().unwrap_or(true)
@@ -205,6 +210,24 @@ impl BarChart {
             r.stroke(line, &b, 1.0);
         }
     }
+    fn draw_notches(&self, r: &mut impl RenderContext, steps: &Vec<f64>, area: &Rect) {
+        let b = r.solid_brush(if self.lines() {
+            Colour::GRAY
+        } else {
+            Colour::BLACK
+        });
+        let w = self.notch_width();
+        for step in steps {
+            r.stroke(
+                Line::new(
+                    (area.min_x() - w, area.max_y() - step.to_owned()),
+                    (area.min_x(), area.max_y() - step.to_owned()),
+                ),
+                &b,
+                2.0,
+            );
+        }
+    }
 }
 impl ChartType for BarChart {
     type DataPoint = BarPoint;
@@ -240,10 +263,15 @@ impl ChartType for BarChart {
         let steps = decide_steps(inner.height(), 0.0, max_val(datasets), self.step as u64);
         let max_step_y = steps.iter().map(|s| s.offset.ceil() as u64).max().unwrap() as f64;
         let grid_area = Rect::new(inner.x0, inner.y1 - max_step_y, inner.x1, inner.y1);
+        self.draw_axis(r, &grid_area);
         if self.lines() {
             self.draw_grid(r, &steps, &grid_area);
         }
-        self.draw_axis(r, &grid_area);
+        self.draw_notches(
+            r,
+            &steps.iter().map(|s| s.offset.ceil()).collect(),
+            &grid_area,
+        );
 
         for txt in self.calc_labels(&info.font(), &draw_info, &info.margins())? {
             r.render_text((area.min_x(), 0.0), &txt)?;
