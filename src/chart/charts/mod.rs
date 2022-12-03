@@ -86,11 +86,11 @@ impl<T> StepLabel<T> {
     }
 }
 
-fn decide_steps(len: f64, min_val: f64, max_val: f64, step: u64) -> Vec<StepLabel<f64>> {
+fn decide_steps(len: f64, min_val: f64, max_val: f64, step: u32) -> Vec<StepLabel<f64>> {
     let range = max_val - min_val;
     let offset_step = len / (range / step as f64);
 
-    (min_val.floor_mul(step as f64) as u64..(max_val.ceil_mul(step as f64) as u64 + step))
+    (min_val.floor_mul(step as f64) as u64..(max_val.ceil_mul(step as f64) as u64 + step as u64))
         .step_by(step as usize)
         .enumerate()
         .map(|(i, s)| StepLabel::new(s as f64, offset_step * i as f64))

@@ -170,7 +170,7 @@ impl BarChart {
                     ))),
             )
         }
-        let steps: Vec<_> = decide_steps(info.area.height(), 0.0, info.max_val, self.step as u64)
+        let steps: Vec<_> = decide_steps(info.area.height(), 0.0, info.max_val, self.step)
             .into_iter()
             .map(|lbl| StepLabel::new(lbl.value, Point::new(0.0, lbl.offset)))
             .collect();
@@ -189,8 +189,8 @@ impl BarChart {
     }
     fn draw_axis(&self, r: &mut impl RenderContext, area: &Rect) {
         for line in mk_grids(&XY::new(true, true), &XY::new(vec![0], vec![0]), &area) {
-            let b = r.solid_brush(Colour::BLACK);
-            r.stroke(line, &b, 2.0);
+            let b = r.solid_brush(Colour::GRAY);
+            r.stroke(line, &b, 1.0);
         }
     }
     fn draw_grid(&self, r: &mut impl RenderContext, steps: &Vec<StepLabel<f64>>, area: &Rect) {
@@ -259,18 +259,13 @@ impl ChartType for BarChart {
         let area = &inner;
         let draw_info = DrawingInfo::new(datasets, area.clone(), self.spacing())?;
 
-        let steps = decide_steps(inner.height(), 0.0, max_val(datasets), self.step as u64);
+        let steps = decide_steps(inner.height(), 0.0, max_val(datasets), self.step);
         let max_step_y = steps.iter().map(|s| s.offset.ceil() as u64).max().unwrap() as f64;
         let grid_area = Rect::new(inner.x0, inner.y1 - max_step_y, inner.x1, inner.y1);
         self.draw_axis(r, &grid_area);
         if self.lines() {
             self.draw_grid(r, &steps, &grid_area);
         }
-        self.draw_notches(
-            r,
-            &steps.iter().map(|s| s.offset.ceil()).collect(),
-            &grid_area,
-        );
 
         for txt in self.calc_labels(&info.font(), &draw_info, &info.margins())? {
             r.render_text((area.min_x(), 0.0), &txt)?;
