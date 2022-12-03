@@ -1,6 +1,4 @@
-
-
-use rlua::{Value};
+use rlua::Value;
 use serde::{
     de, forward_to_deserialize_any,
     ser::{self, SerializeMap},
@@ -18,11 +16,7 @@ pub fn from_lua<'de, V: Deserialize<'de>>(v: Value) -> Result<V, DeErr> {
     V::deserialize(de)
 }
 
-impl<'de, 'lua> Deserializer<'lua> {
-    pub fn new(input: Value<'lua>) -> Self {
-        Self { input }
-    }
-}
+impl<'de, 'lua> Deserializer<'lua> {}
 
 #[derive(Error, Debug)]
 pub enum LuaDeserializeErr {
@@ -32,8 +26,6 @@ pub enum LuaDeserializeErr {
     Custom(String),
     #[error("wrong type expecting {0} found {1}")]
     WrongType(String, String),
-    #[error("{0}")]
-    Other(Box<dyn std::error::Error>),
     #[error("expecting length {0} got {1}")]
     WrongLength(usize, usize),
 }
@@ -108,11 +100,7 @@ struct Enum<'lua> {
     v: rlua::String<'lua>,
 }
 
-impl<'lua> Enum<'lua> {
-    fn new(v: rlua::String<'lua>) -> Self {
-        Self { v }
-    }
-}
+impl<'lua> Enum<'lua> {}
 
 impl<'de, 'lua> de::EnumAccess<'de> for Enum<'lua> {
     type Error = DeErr;

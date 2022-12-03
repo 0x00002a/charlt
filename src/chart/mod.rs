@@ -54,7 +54,7 @@ fn default_line_thickness() -> f64 {
     return 1.5;
 }
 #[derive(Clone, Debug, Deserialize)]
-struct ChartInfo<Pt: Clone> {
+pub struct ChartInfo<Pt: Clone> {
     datasets: Vec<Dataset<Pt>>,
     font: Option<FontInfo>,
     margins: Option<XY<Option<f64>>>,
@@ -87,7 +87,7 @@ pub struct Chart<C, Pt: Clone> {
     #[serde(flatten)]
     info: ChartInfo<Pt>,
 }
-trait ChartType: Clone {
+pub trait ChartType: Clone {
     type DataPoint: Clone;
     const NAME: &'static str;
     fn render_datasets<R: RenderContext>(
