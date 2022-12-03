@@ -75,14 +75,17 @@ fn mk_grids(grid: &XY<bool>, steps: &XY<Vec<u64>>, bounds: &Rect) -> Vec<Line> {
 }
 
 #[derive(PartialEq, Clone, Debug)]
-struct StepLabel<T> {
-    value: f64,
+struct StepLabel<T = f64> {
+    value: String,
     offset: T,
 }
 
 impl<T> StepLabel<T> {
-    fn new(value: f64, offset: T) -> Self {
-        Self { value, offset }
+    fn new(value: impl ToString, offset: T) -> Self {
+        Self {
+            value: value.to_string(),
+            offset,
+        }
     }
 }
 
