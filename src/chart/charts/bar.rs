@@ -1,3 +1,5 @@
+use std::f64::consts::PI;
+
 use kurbo::{Affine, Line, Point, Rect, Shape};
 use piet::{RenderContext, Text, TextAlignment, TextLayout, TextLayoutBuilder};
 use serde::Deserialize;
@@ -15,7 +17,7 @@ pub struct BarChart {
     categories: Vec<String>,
     step: u32,
     lines: Option<bool>,
-    notch_width: Option<f64>,
+    axis: Option<String>,
 }
 struct DrawingInfo {
     block_w: f64,
@@ -110,11 +112,8 @@ impl BarChart {
             categories: Vec::default(),
             step: 10,
             lines: None,
-            notch_width: None,
+            axis: None,
         }
-    }
-    fn notch_width(&self) -> f64 {
-        self.notch_width.to_owned().unwrap_or(3.5)
     }
     fn lines(&self) -> bool {
         self.lines.to_owned().unwrap_or(true)
@@ -170,21 +169,6 @@ impl BarChart {
                     ))),
             )
         }
-        let steps: Vec<_> = decide_steps(info.area.height(), 0.0, info.max_val, self.step)
-            .into_iter()
-            .map(|lbl| StepLabel::new(lbl.value, Point::new(0.0, lbl.offset)))
-            .collect();
-        for lbl in steps {
-            out.push(
-                TextInfo::new(lbl.value.to_string())
-                    .alignment(TextAlignment::End)
-                    .font(font.to_owned())
-                    .transform(Affine::translate((
-                        lbl.offset.x - margins.x,
-                        info.area.max_y() - lbl.offset.y,
-                    ))),
-            )
-        }
         Ok(out)
     }
     fn draw_axis(&self, r: &mut impl RenderContext, area: &Rect) {
@@ -207,24 +191,6 @@ impl BarChart {
         ) {
             let b = r.solid_brush(Colour::GRAY);
             r.stroke(line, &b, 1.0);
-        }
-    }
-    fn draw_notches(&self, r: &mut impl RenderContext, steps: &Vec<f64>, area: &Rect) {
-        let b = r.solid_brush(if self.lines() {
-            Colour::GRAY
-        } else {
-            Colour::BLACK
-        });
-        let w = self.notch_width();
-        for step in steps {
-            r.stroke(
-                Line::new(
-                    (area.min_x() - w, area.max_y() - step.to_owned()),
-                    (area.min_x(), area.max_y() - step.to_owned()),
-                ),
-                &b,
-                2.0,
-            );
         }
     }
 }
@@ -267,8 +233,40 @@ impl ChartType for BarChart {
             self.draw_grid(r, &steps, &grid_area);
         }
 
-        for txt in self.calc_labels(&info.font(), &draw_info, &info.margins())? {
+        let mut max_xw: f64 = 0.0;
+        let steps: Vec<_> = decide_steps(area.height(), 0.0, draw_info.max_val, self.step)
+            .into_iter()
+            .map(|lbl| StepLabel::new(lbl.value, Point::new(0.0, lbl.offset)))
+            .collect();
+        for lbl in steps {
+            let w = r
+                .render_text(
+                    (
+                        area.min_x() + lbl.offset.x - info.margins().x,
+                        area.max_y() - lbl.offset.y,
+                    ),
+                    &TextInfo::new(lbl.value.to_string())
+                        .alignment(TextAlignment::End)
+                        .font(label_font.to_owned()),
+                )?
+                .size()
+                .width;
+            max_xw = max_xw.max(w);
+        }
+        for txt in self.calc_labels(label_font, &draw_info, &info.margins())? {
             r.render_text((area.min_x(), 0.0), &txt)?;
+        }
+
+        if let Some(txt) = &self.axis {
+            r.render_text(
+                (
+                    area.min_x() - max_xw - char_dims.width * 2.0,
+                    area.center().y,
+                ),
+                &TextInfo::new(txt.to_owned())
+                    .transform(Affine::rotate(-PI / 2.0))
+                    .alignment(TextAlignment::Center),
+            )?;
         }
 
         r.with_restore(|r| -> Result<()> {
