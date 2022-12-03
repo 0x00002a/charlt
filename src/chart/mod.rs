@@ -31,6 +31,12 @@ impl<T> XY<T> {
             y: y.into(),
         }
     }
+    pub fn map<R>(&self, f: impl Fn(&T) -> R) -> XY<R> {
+        XY {
+            x: f(&self.x),
+            y: f(&self.y),
+        }
+    }
 }
 impl From<XY<f64>> for kurbo::Point {
     fn from(pt: XY<f64>) -> Self {
