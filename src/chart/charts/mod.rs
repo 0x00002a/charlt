@@ -2,6 +2,7 @@ pub mod bar;
 pub mod xyscatter;
 
 use kurbo::{Line, Rect};
+use more_asserts::debug_assert_le;
 use serde::Deserialize;
 
 use crate::{
@@ -95,14 +96,26 @@ impl Into<u64> for StepLabel<f64> {
 }
 
 fn decide_steps(len: f64, min_val: f64, max_val: f64, step: u32) -> Vec<StepLabel<f64>> {
-    let range = max_val - min_val;
+    let range = max_val.ceil_mul(step as f64) - min_val.floor_mul(step as f64);
     let offset_step = len / (range / step as f64);
 
-    (min_val.floor_mul(step as f64) as u64..(max_val.ceil_mul(step as f64) as u64 + step as u64))
+    let vs: Vec<_> = (min_val.floor_mul(step as f64) as i64
+        ..(max_val.ceil_mul(step as f64) as i64 + step as i64))
         .step_by(step as usize)
         .enumerate()
         .map(|(i, s)| StepLabel::new(s as f64, offset_step * i as f64))
-        .collect()
+        .collect();
+    debug_assert_le!(
+        vs.iter().map(|s| s.offset.ceil() as u64).max().unwrap() as f64,
+        len,
+        "offset outside bounds: len {} min_val {} max_val {} step {} offset_step {}",
+        len,
+        min_val,
+        max_val,
+        step,
+        offset_step
+    );
+    vs
 }
 
 #[cfg(test)]

@@ -37,7 +37,7 @@ impl XYScatter {
             steps
                 .iter()
                 .map(|coord| {
-                    let content = coord.value.to_string();
+                    let content = coord.value.to_owned();
                     let info = f(coord.offset.to_owned() as f64);
                     let s = r
                         .render_text((0.0, 0.0), &info.content(content).font(lbl_font.to_owned()))?
@@ -134,6 +134,7 @@ impl XYScatter {
         r: &mut R,
     ) -> Result<()> {
         let steps = self.steps(datasets, area);
+        println!("steps: {:?} in? {:?}", steps, area);
         let xylines = XY {
             x: area.min_x(),
             y: area.max_y(),
@@ -230,14 +231,10 @@ impl ChartType for XYScatter {
                 .max()
                 .unwrap() as f64
         });
+        println!("step_max: {:?}", step_max);
         self.render_into(
             datasets,
-            &Rect::new(
-                inner.x0,
-                (inner.y0 - step_max.y).max(0.0),
-                step_max.x,
-                inner.y1,
-            ),
+            &Rect::new(inner.x0, inner.y0, step_max.x, step_max.y),
             label_font,
             r,
         )

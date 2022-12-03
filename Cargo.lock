@@ -140,6 +140,7 @@ dependencies = [
  "cairo-rs",
  "clap",
  "kurbo",
+ "more-asserts",
  "piet",
  "piet-cairo",
  "piet-svg",
@@ -714,6 +715,12 @@ checksum = "b275950c28b37e794e8c55d88aeb5e139d0ce23fdbbeda68f8d7174abdf9e8fa"
 dependencies = [
  "adler",
 ]
+
+[[package]]
+name = "more-asserts"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1fafa6961cabd9c63bcd77a45d7e3b7f3b552b70417831fb0f56db717e72407e"
 
 [[package]]
 name = "num-integer"
