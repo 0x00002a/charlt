@@ -5,7 +5,7 @@ use crate::{
     render::{self, FontInfo, RenderContextExt, TextInfo},
 };
 
-use super::{mk_grids, Result, XY};
+use super::{decide_steps, mk_grids, Result, StepLabel, XY};
 use kurbo::{Affine, BezPath, Point, Rect, Shape, Size, TranslateScale};
 use piet::{RenderContext, Text, TextAlignment, TextLayout, TextLayoutBuilder};
 use serde::Deserialize;
@@ -20,25 +20,25 @@ pub struct XYScatter {
 
 impl XYScatter {
     fn margin(&self) -> XY<f64> {
-        self.margin.to_owned().unwrap_or(XY { x: 4.0, y: 10.0 })
+        self.margin.to_owned().unwrap_or(XY { x: 8.0, y: 10.0 })
     }
     fn mk_labels<R: RenderContext>(
         &self,
-        steps: &XY<Vec<u64>>,
+        steps: &XY<Vec<StepLabel<f64>>>,
         xylines: &XY<f64>,
         lbl_font: &FontInfo,
         origin: &Point,
         r: &mut R,
     ) -> Result<(f64, f64)> {
         let margin = self.margin();
-        let mut build_texts = |steps: &Vec<u64>,
+        let mut build_texts = |steps: &Vec<StepLabel<f64>>,
                                f: &dyn Fn(f64) -> TextInfo|
          -> Result<Vec<Size>> {
             steps
                 .iter()
                 .map(|coord| {
-                    let content = coord.to_string();
-                    let info = f(coord.to_owned() as f64);
+                    let content = coord.value.to_string();
+                    let info = f(coord.offset.to_owned() as f64);
                     let s = r
                         .render_text((0.0, 0.0), &info.content(content).font(lbl_font.to_owned()))?
                         .size();
@@ -108,14 +108,22 @@ impl XYScatter {
             .collect();
         Ok(paths)
     }
-    fn calc_steps(&self, area: &Rect) -> XY<Vec<u64>> {
-        let (step_x, step_y) = (self.steps.x as f64, self.steps.y as f64);
-        let steps_y: Vec<_> = (0..(area.height() + step_y) as u64)
-            .step_by(step_y as usize)
-            .collect();
-        let steps_x: Vec<_> = (0..(area.width() + step_x) as u64)
-            .step_by(step_x as usize)
-            .collect();
+    fn steps(&self, datasets: &Vec<Dataset<XY<f64>>>, area: &Rect) -> XY<Vec<StepLabel>> {
+        let (min_x, min_y, max_x, max_y) = datasets
+            .iter()
+            .map(|s| {
+                let max_x = s.values.iter().map(|v| v.x as u64).max().unwrap();
+                let max_y = s.values.iter().map(|v| v.y as u64).max().unwrap();
+                let min_x = s.values.iter().map(|v| v.x as u64).min().unwrap();
+                let min_y = s.values.iter().map(|v| v.y as u64).min().unwrap();
+                (min_x, min_y, max_x, max_y)
+            })
+            .reduce(|(lmix, lmiy, lmx, lmy), (rmix, rmiy, rmx, rmy)| {
+                (lmix.min(rmix), lmiy.min(rmiy), lmx.max(rmx), lmy.max(rmy))
+            })
+            .unwrap();
+        let steps_x = decide_steps(area.width(), min_x as f64, max_x as f64, self.steps.x);
+        let steps_y = decide_steps(area.height(), min_y as f64, max_y as f64, self.steps.y);
         XY::new(steps_x, steps_y)
     }
     fn render_into<R: RenderContext>(
@@ -125,14 +133,7 @@ impl XYScatter {
         label_font: &FontInfo,
         r: &mut R,
     ) -> Result<()> {
-        let steps = self.calc_steps(area);
-        let steps_x = steps.x.clone();
-        let steps_y = steps.y.clone();
-
-        let steps = XY {
-            x: steps_x,
-            y: steps_y,
-        };
+        let steps = self.steps(datasets, area);
         let xylines = XY {
             x: area.min_x(),
             y: area.max_y(),
@@ -146,21 +147,22 @@ impl XYScatter {
         )?;
 
         r.render_text(
-            (area.center().x, area.max_y() + y_offset),
-            &TextInfo::new(self.axis.y.to_owned()).alignment(TextAlignment::Center),
+            (area.center().x, area.max_y() + y_offset + self.margin().y),
+            &TextInfo::new(self.axis.x.to_owned()).alignment(TextAlignment::Center),
         )?;
         r.render_text(
-            (xylines.x, area.center().y),
-            &TextInfo::new(self.axis.x.to_owned())
+            (xylines.x - (x_offset + self.margin().x), area.center().y),
+            &TextInfo::new(self.axis.y.to_owned())
                 .font(label_font.to_owned())
-                .transform(Affine::translate((-(self.margin().x + x_offset), 0.0)))
+                .transform(Affine::translate((0.0, 0.0)))
                 .transform(Affine::rotate(-PI / 2.0))
                 .alignment(TextAlignment::Center),
         )?;
 
+        let grid_steps = steps.map(|s| s.iter().map(|s| s.offset.ceil() as u64).collect());
         for line in mk_grids(
             &self.grid.clone().unwrap_or(XY { x: false, y: true }),
-            &steps,
+            &grid_steps,
             area,
         ) {
             let b = r.solid_brush(piet::Color::GRAY);
@@ -169,7 +171,7 @@ impl XYScatter {
 
         let axis = mk_grids(
             &XY::new(true, true),
-            &XY::new(vec![steps.x[0]], vec![steps.y[0].to_owned()]),
+            &XY::new(vec![grid_steps.x[0]], vec![grid_steps.y[0].to_owned()]),
             area,
         )
         .into_iter()
@@ -191,9 +193,6 @@ impl XYScatter {
             r.stroke(p, &b, c.thickness);
         }
         Ok(())
-    }
-    fn step_adjust(&self, area: &Rect) -> Rect {
-        super::step_adjust(area, &self.steps)
     }
 }
 
@@ -224,13 +223,30 @@ impl ChartType for XYScatter {
             area.x1 - margin.x,
             area.y1 - char_dims.height * 3.0 - margin.y,
         );
-        self.render_into(datasets, &self.step_adjust(&inner), label_font, r)
+        let step_max: XY<f64> = self.steps(datasets, &inner).map(|sl| {
+            sl.iter()
+                .map(Clone::clone)
+                .map(Into::<u64>::into)
+                .max()
+                .unwrap() as f64
+        });
+        self.render_into(
+            datasets,
+            &Rect::new(
+                inner.x0,
+                (inner.y0 - step_max.y).max(0.0),
+                step_max.x,
+                inner.y1,
+            ),
+            label_font,
+            r,
+        )
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use kurbo::Shape;
+    use kurbo::{Line, Shape};
 
     use crate::chart::charts::to_dataset;
 

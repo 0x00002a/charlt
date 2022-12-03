@@ -1,6 +1,6 @@
 use std::io::Read;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use clap::{builder::PossibleValue, ValueEnum};
 use rlua::{Lua, StdLib};
 
@@ -35,7 +35,15 @@ impl ValueEnum for InputFormat {
 
 pub fn load_chart<F: Read>(f: &mut F, fmt: InputFormat) -> Result<Charts> {
     match fmt {
-        InputFormat::Yaml => Ok(serde_yaml::from_reader(f)?),
+        InputFormat::Yaml => Ok(serde_yaml::from_reader(f).map_err(|e| {
+            anyhow!(
+                "failed to deserailize input: {} at {}",
+                e.to_string(),
+                e.location()
+                    .map(|l| format!("{}:{}", l.line(), l.column()))
+                    .unwrap_or("unknown".to_owned())
+            )
+        })?),
         InputFormat::Lua => {
             let mut buf = Vec::new();
             f.read_to_end(&mut buf)?;

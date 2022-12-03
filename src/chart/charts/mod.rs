@@ -88,6 +88,11 @@ impl<T> StepLabel<T> {
         }
     }
 }
+impl Into<u64> for StepLabel<f64> {
+    fn into(self) -> u64 {
+        self.offset.ceil() as u64
+    }
+}
 
 fn decide_steps(len: f64, min_val: f64, max_val: f64, step: u32) -> Vec<StepLabel<f64>> {
     let range = max_val - min_val;
