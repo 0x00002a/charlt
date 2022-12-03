@@ -64,7 +64,7 @@ impl XYScatter {
         .map(|s| s.width.ceil() as u64)
         .max()
         .unwrap();
-        Ok((x_offset as f64, y_offset as f64))
+        Ok((x_offset as f64 + 10.0, y_offset as f64 + 4.0))
     }
     fn calc_paths(
         &self,
@@ -134,7 +134,6 @@ impl XYScatter {
         r: &mut R,
     ) -> Result<()> {
         let steps = self.steps(datasets, area);
-        println!("steps: {:?} in? {:?}", steps, area);
         let xylines = XY {
             x: area.min_x(),
             y: area.max_y(),
@@ -231,7 +230,6 @@ impl ChartType for XYScatter {
                 .max()
                 .unwrap() as f64
         });
-        println!("step_max: {:?}", step_max);
         self.render_into(
             datasets,
             &Rect::new(inner.x0, inner.y0, step_max.x, step_max.y),
