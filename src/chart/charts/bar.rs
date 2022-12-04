@@ -13,10 +13,15 @@ use crate::{
 pub type BarPoint = f64;
 #[derive(Clone, Debug, Deserialize)]
 pub struct BarChart {
+    /// Spacing between block groups
     spacing: Option<f64>,
+    /// Categories of blocks, appear along the x axis
     categories: Vec<String>,
+    /// Step size for the y axis
     step: u32,
+    /// Draw grid lines for the x axis? default: true
     lines: Option<bool>,
+    /// Label for the y axis
     axis: Option<String>,
 }
 struct DrawingInfo {

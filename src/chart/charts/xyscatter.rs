@@ -12,9 +12,13 @@ use serde::Deserialize;
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct XYScatter {
+    /// Labels for the axis
     axis: XY<String>,
+    /// Step sizes
     steps: XY<u32>,
+    /// Draw grid lines? default: {x: true, y: false}
     grid: Option<XY<bool>>,
+    /// Margin around plot (between plot and labels)
     margin: Option<XY<f64>>,
 }
 
