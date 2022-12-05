@@ -158,7 +158,7 @@ impl BarChart {
             return Err(render::Error::InvalidDatasets(format!(
                 "categories and number of blocks do not match {} != {}",
                 self.categories.len(),
-                info.nb_blocks
+                info.nb_cats
             )));
         }
         let mut out = Vec::with_capacity(self.categories.len());

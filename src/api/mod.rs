@@ -37,9 +37,10 @@ fn deserialize_terminator<'de, D: Deserializer<'de>>(
     let s = Option::<u8>::deserialize(deserializer)?;
     Ok(s.map(|s| csv::Terminator::Any(s)))
 }
-fn load_csv_bindings<'lua>(ctx: rlua::Context<'lua>) -> Result<()> {
+fn load_bindings<'lua>(ctx: rlua::Context<'lua>) -> Result<()> {
     let tbl = ctx.create_table()?;
-    tbl.set(
+    let csv = ctx.create_table()?;
+    csv.set(
         "parse_string",
         ctx.create_function(
             |_,
@@ -87,6 +88,7 @@ fn load_csv_bindings<'lua>(ctx: rlua::Context<'lua>) -> Result<()> {
             },
         )?,
     )?;
+    tbl.set("csv", csv)?;
     ctx.globals().set("__rs", tbl)?;
     Ok(())
 }
@@ -130,7 +132,8 @@ pub fn load_chart<F: Read>(f: &mut F, fmt: InputFormat) -> Result<Charts> {
             let lua = Lua::new();
             lua.load_from_std_lib(StdLib::ALL_NO_DEBUG)?;
             lua.context(|c| {
-                load_csv_bindings(c)?;
+                load_bindings(c)?;
+                lua::load_api(c)?;
                 let chunk = c.load(&buf);
                 Ok(from_lua(chunk.eval()?)?)
             })
