@@ -1,7 +1,7 @@
 mod charts;
 mod render;
 use kurbo::Rect;
-use piet::RenderContext;
+use plotters::prelude::{ChartBuilder, DrawingBackend};
 use serde::Deserialize;
 
 pub use charts::*;
@@ -90,11 +90,11 @@ pub struct Chart<C, Pt: Clone> {
 pub trait ChartType: Clone {
     type DataPoint: Clone;
     const NAME: &'static str;
-    fn render_datasets<R: RenderContext>(
+    fn render_datasets<DB: DrawingBackend>(
         &self,
         info: &ChartInfo<Self::DataPoint>,
         area: &Rect,
-        r: &mut R,
+        c: &mut ChartBuilder<DB>,
     ) -> Result<(), crate::render::Error>;
 }
 mod serde_colour {
@@ -118,6 +118,6 @@ mod serde_colour {
         let c = s
             .parse::<Color>()
             .map_err(|e| D::Error::custom(e.to_string()))?;
-        Ok(Colour::rgba8(c.r, c.g, c.b, (c.a * 255.0).ceil() as u8))
+        Ok(plotters::style::RGBAColor(c.r, c.g, c.b, c.a as f64))
     }
 }

@@ -4,7 +4,7 @@ use anyhow::{anyhow, Result};
 use api::InputFormat;
 use clap::{builder::PossibleValue, Parser, ValueEnum};
 use kurbo::{Rect, Size};
-use piet::RenderContext;
+use plotters::prelude::{ChartBuilder, DrawingBackend};
 use render::Render;
 use serde::{Deserialize, Serialize};
 
@@ -91,7 +91,7 @@ impl ValueEnum for OutputFormat {
         })
     }
 }
-fn do_render<R: RenderContext>(args: &CliArgs, r: &mut R) -> Result<()> {
+fn do_render<DB: DrawingBackend>(args: &CliArgs, r: &mut ChartBuilder<DB>) -> Result<()> {
     let mut input = BufReader::new(std::fs::File::open(args.input.to_owned())?);
     let chart = api::load_chart(
         &mut input,
@@ -108,35 +108,5 @@ fn main() -> Result<()> {
     let args = CliArgs::parse();
 
     let size = Size::new(args.width as f64, args.height as f64);
-    let render = |surface: &dyn AsRef<cairo::Surface>| {
-        do_render(
-            &args,
-            &mut piet_cairo::CairoRenderContext::new(&piet_cairo::cairo::Context::new(surface)?),
-        )
-    };
-    match args.output_format.unwrap_or_else(|| {
-        let p: &Path = args.output.as_ref();
-        p.try_into().expect("unknown output format")
-    }) {
-        OutputFormat::Pdf => render(&cairo::PdfSurface::new(
-            size.width,
-            size.height,
-            args.output.clone(),
-        )?),
-        OutputFormat::Svg => render(&cairo::SvgSurface::new(
-            size.width,
-            size.height,
-            args.output.clone().into(),
-        )?),
-        OutputFormat::Png => {
-            let surface = cairo::ImageSurface::create(
-                cairo::Format::ARgb32,
-                size.width as i32,
-                size.height as i32,
-            )?;
-            render(&surface)?;
-            surface.write_to_png(&mut BufWriter::new(std::fs::File::create(&args.output)?))?;
-            Ok(())
-        }
-    }
+    todo!()
 }
