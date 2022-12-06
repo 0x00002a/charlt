@@ -1,7 +1,9 @@
 use std::f64::consts::PI;
+use std::ops::Range;
 
 use kurbo::{Affine, Point, Rect};
-use plotters::prelude::SegmentValue;
+use plotters::coord::ranged1d::{DefaultValueFormatOption, NoDefaultFormatting, ValueFormatter};
+use plotters::prelude::{Ranged, SegmentValue};
 use plotters::style::{FontFamily, TextStyle};
 use plotters::{element::Drawable, prelude::IntoSegmentedCoord};
 use plotters::{
@@ -116,13 +118,85 @@ impl BarChart {
     }
 }
 
-struct BarSeries {}
+enum BarSegment {
+    Normal { cat: u64, num: u64 },
+    End,
+}
 
-impl Iterator for BarSeries {
-    type Item = Rectangle<(f32, f32)>;
+struct BarSegments {
+    blocks: u64,
+    cat_names: Vec<String>,
+    spacing: u64,
+}
 
-    fn next(&mut self) -> Option<Self::Item> {
-        todo!()
+impl BarSegments {
+    fn new<I: Iterator<Item = S>, S: Into<String>>(blocks: u64, spacing: u64, iter: I) -> Self {
+        let cat_names = iter.map(|s| s.into()).collect();
+        Self {
+            blocks,
+            cat_names,
+            spacing,
+        }
+    }
+    fn cats(&self) -> u64 {
+        self.cat_names.len() as u64
+    }
+}
+impl ValueFormatter<BarSegment> for BarSegments {
+    fn format(value: &BarSegment) -> String {
+        match value {
+            BarSegment::Normal { cat, .. } => cat.to_string(),
+            BarSegment::End => "".to_owned(),
+        }
+    }
+
+    fn format_ext(&self, value: &BarSegment) -> String {
+        match value {
+            BarSegment::Normal { cat, num } => self.cat_names[*cat as usize].clone(),
+            BarSegment::End => "".to_owned(),
+        }
+    }
+}
+
+impl Ranged for BarSegments {
+    type FormatOption = NoDefaultFormatting;
+
+    type ValueType = BarSegment;
+
+    fn map(&self, value: &Self::ValueType, limit: (i32, i32)) -> i32 {
+        match value {
+            BarSegment::Normal { cat, num, .. } => {
+                let range = (limit.1 - limit.0) as f64;
+                let spacing = self.spacing as f64;
+                let blocks = (self.cats() * self.blocks) as f64;
+                let block_w = (range - (spacing * self.cats() as f64)) / blocks;
+                let block_gap = block_w * self.blocks as f64 + spacing;
+                let x = *cat as f64 * block_gap + block_w * (*num as f64);
+                limit.0 + x as i32
+            }
+            BarSegment::End => limit.1,
+        }
+    }
+
+    fn key_points<Hint: plotters::coord::ranged1d::KeyPointHint>(
+        &self,
+        _hint: Hint,
+    ) -> Vec<Self::ValueType> {
+        self.cat_names
+            .iter()
+            .enumerate()
+            .map(|(cn, c)| BarSegment::Normal {
+                cat: cn as u64,
+                num: (self.blocks as f64 / 2.0).round() as u64,
+            })
+            .collect()
+    }
+
+    fn range(&self) -> std::ops::Range<Self::ValueType> {
+        Range {
+            start: BarSegment::Normal { cat: 0, num: 0 },
+            end: BarSegment::End,
+        }
     }
 }
 
@@ -139,7 +213,7 @@ impl ChartType for BarChart {
     ) -> Result<()> {
         let dinfo = DrawingInfo::new(&info.datasets, area.to_owned(), self.spacing())?;
         let mut chart = //c.build_cartesian_2d(0..70u64, 0u64..dinfo.max_val as u64)?;
-            c.set_left_and_bottom_label_area_size(40).margin(10).build_cartesian_2d(0..(dinfo.nb_blocks * dinfo.nb_cats * dinfo.block_gap()) as u64, 0u64..dinfo.max_val as u64)?;
+            c.set_left_and_bottom_label_area_size(40).margin(10).build_cartesian_2d(BarSegments::new(dinfo.nb_blocks as u64,self.spacing() as u64, self.categories.iter()), 0u64..(dinfo.max_val + 1.0) as u64)?;
         chart
             .configure_mesh()
             .disable_x_mesh()
@@ -165,23 +239,29 @@ impl ChartType for BarChart {
         for (nset, dset) in info.datasets.iter().enumerate() {
             let colour = dset.extra.colour;
             chart
-                .draw_series(dset.values.iter().flat_map(|c| {
-                    let mut out = Vec::new();
-                    for ncat in 0..self.categories.len() {
-                        let start_x =
-                            (nset as f64) * dinfo.block_w + dinfo.block_gap() * ncat as f64;
-                        let end_x = start_x + dinfo.block_w;
-                        println!("start: {}, end: {}", start_x, end_x);
-                        out.push(Rectangle::new(
-                            [
-                                (start_x.ceil() as u64, 0u64),
-                                (end_x.ceil() as u64, *c as u64),
-                            ],
-                            dset.extra.colour.filled(),
-                        ))
-                        //Rectangle::new([(c.into(), 5u64), (c.into(), 1u64)], plotters::style::BLACK)
-                    }
-                    out.into_iter()
+                .draw_series((0..self.categories.len()).map(|ncat| {
+                    let start_x = (nset as f64) * dinfo.block_w + dinfo.block_gap() * ncat as f64;
+                    let end_x = start_x + dinfo.block_w;
+                    Rectangle::new(
+                        [
+                            (
+                                BarSegment::Normal {
+                                    cat: ncat as u64,
+                                    num: nset as u64,
+                                },
+                                0u64,
+                            ),
+                            (
+                                BarSegment::Normal {
+                                    cat: ncat as u64,
+                                    num: nset as u64 + 1,
+                                },
+                                dset.values[ncat] as u64,
+                            ),
+                        ],
+                        dset.extra.colour.filled(),
+                    )
+                    //Rectangle::new([(c.into(), 5u64), (c.into(), 1u64)], plotters::style::BLACK)
                 }))?
                 /* .legend(move |(x, y)| {
                     PathElement::new(vec![(x, y), (x - 10, y + 20)], colour.stroke_width(3))
