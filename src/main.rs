@@ -1,10 +1,13 @@
-use std::io::{BufReader, BufWriter};
+use std::{
+    fs::File,
+    io::{BufReader, BufWriter},
+};
 
 use anyhow::{anyhow, Result};
 use api::InputFormat;
 use clap::{builder::PossibleValue, Parser, ValueEnum};
 use kurbo::{Rect, Size};
-use plotters::prelude::{ChartBuilder, DrawingBackend};
+use plotters::prelude::{BitMapBackend, ChartBuilder, DrawingBackend, IntoDrawingArea};
 use render::Render;
 use serde::{Deserialize, Serialize};
 
@@ -50,7 +53,7 @@ impl TryFrom<&Path> for OutputFormat {
     }
 }
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 struct CliArgs {
     #[arg(name = "INPUT")]
     input: std::path::PathBuf,
@@ -107,6 +110,20 @@ fn do_render<DB: DrawingBackend>(args: &CliArgs, r: &mut ChartBuilder<DB>) -> Re
 fn main() -> Result<()> {
     let args = CliArgs::parse();
 
+    let root = BitMapBackend::new(&args.output, (args.width, args.height)).into_drawing_area();
+    let mut builder = ChartBuilder::on(&root);
+    let chart = api::load_chart(
+        &mut File::open(&args.input)?,
+        args.input_format
+            .or_else(|| InputFormat::from_path(args.input.as_ref()))
+            .ok_or(anyhow!("unknown input format"))?,
+    )?;
+    root.fill(&plotters::style::WHITE)?;
     let size = Size::new(args.width as f64, args.height as f64);
-    todo!()
+    chart.render(
+        &Rect::from_points((0.0, 0.0), (size.width, size.height)),
+        &mut builder,
+    )?;
+    root.present()?;
+    Ok(())
 }

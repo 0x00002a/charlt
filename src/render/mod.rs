@@ -107,6 +107,16 @@ pub enum Error {
     NotEnoughSpace(f64, f64, String),
     #[error("datasets are invalid {0}")]
     InvalidDatasets(String),
+    #[error("plotter drawing error: {0}")]
+    PlottersDraw(String),
 }
+impl<E: std::error::Error + Send + Sync> From<plotters::drawing::DrawingAreaErrorKind<E>>
+    for Error
+{
+    fn from(e: plotters::drawing::DrawingAreaErrorKind<E>) -> Self {
+        Self::PlottersDraw(e.to_string())
+    }
+}
+
 unsafe impl Send for Error {}
 unsafe impl Sync for Error {}
