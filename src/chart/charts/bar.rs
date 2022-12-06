@@ -2,6 +2,7 @@ use std::f64::consts::PI;
 
 use kurbo::{Affine, Point, Rect};
 use plotters::prelude::SegmentValue;
+use plotters::style::{FontFamily, TextStyle};
 use plotters::{element::Drawable, prelude::IntoSegmentedCoord};
 use plotters::{
     prelude::{
@@ -138,13 +139,21 @@ impl ChartType for BarChart {
     ) -> Result<()> {
         let dinfo = DrawingInfo::new(&info.datasets, area.to_owned(), self.spacing())?;
         let mut chart = //c.build_cartesian_2d(0..70u64, 0u64..dinfo.max_val as u64)?;
-            c.build_cartesian_2d(self.categories.into_segmented(), 0u64..dinfo.max_val as u64)?.set_secondary_coord((0..(dinfo.nb_cats * dinfo.nb_blocks).ceil() as u64), 0..dinfo.max_val as u64);
-        /*chart
-        .configure_mesh()
-        .disable_x_mesh()
-        .bold_line_style(&WHITE.mix(0.3))
-        .y_desc(self.axis.to_owned().unwrap_or("".to_owned()))
-        .draw()?;*/
+            c.set_left_and_bottom_label_area_size(40).margin(10).build_cartesian_2d(0..(dinfo.nb_blocks * dinfo.nb_cats * dinfo.block_gap()) as u64, 0u64..dinfo.max_val as u64)?;
+        chart
+            .configure_mesh()
+            .disable_x_mesh()
+            .bold_line_style(&WHITE.mix(0.3))
+            .x_desc("stuff")
+            .y_desc(self.axis.to_owned().unwrap_or("".to_owned()))
+            .draw()?;
+        chart
+            .configure_series_labels()
+            .background_style(plotters::style::CYAN)
+            .position(plotters::prelude::SeriesLabelPosition::UpperRight)
+            .label_font(FontFamily::SansSerif)
+            .legend_area_size(40)
+            .draw()?;
         /*chart.draw_series(info.datasets.iter().enumerate().flat_map(|(n_cat, dset)| {
                     let mut out = Vec::new();
                     for n in 0..dset.values.len() {
@@ -153,23 +162,31 @@ impl ChartType for BarChart {
                     }
                     out.into_iter()
         }));*/
-        for dset in &info.datasets {
-            chart.draw_secondary_series(dset.values.iter().flat_map(|c| {
-                let mut out = Vec::new();
-                for ncat in 0..self.categories.len() {
-                    let start_x = dinfo.block_gap() * ncat as f64;
-                    let end_x = start_x + dinfo.block_w * dinfo.nb_blocks;
-                    out.push(Rectangle::new(
-                        [
-                            (start_x.ceil() as u64, 0u64),
-                            (end_x.ceil() as u64, *c as u64),
-                        ],
-                        dset.extra.colour,
-                    ))
-                    //Rectangle::new([(c.into(), 5u64), (c.into(), 1u64)], plotters::style::BLACK)
-                }
-                out.into_iter()
-            }))?;
+        for (nset, dset) in info.datasets.iter().enumerate() {
+            let colour = dset.extra.colour;
+            chart
+                .draw_series(dset.values.iter().flat_map(|c| {
+                    let mut out = Vec::new();
+                    for ncat in 0..self.categories.len() {
+                        let start_x =
+                            (nset as f64) * dinfo.block_w + dinfo.block_gap() * ncat as f64;
+                        let end_x = start_x + dinfo.block_w;
+                        println!("start: {}, end: {}", start_x, end_x);
+                        out.push(Rectangle::new(
+                            [
+                                (start_x.ceil() as u64, 0u64),
+                                (end_x.ceil() as u64, *c as u64),
+                            ],
+                            dset.extra.colour.filled(),
+                        ))
+                        //Rectangle::new([(c.into(), 5u64), (c.into(), 1u64)], plotters::style::BLACK)
+                    }
+                    out.into_iter()
+                }))?
+                /* .legend(move |(x, y)| {
+                    PathElement::new(vec![(x, y), (x - 10, y + 20)], colour.stroke_width(3))
+                })*/
+                .label(dset.extra.name.clone());
         }
 
         /*chart.draw_series(self.categories.iter().enumerate().flat_map(|(ncat, c)| {
