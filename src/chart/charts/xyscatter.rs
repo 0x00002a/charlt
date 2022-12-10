@@ -32,8 +32,8 @@ impl XYScatter {
 
 impl ChartType for XYScatter {
     type DataPoint = XY<f64>;
-    type X = plotters::coord::types::RangedCoordu64;
-    type Y = plotters::coord::types::RangedCoordu64;
+    type X = plotters::coord::types::RangedCoordf64;
+    type Y = plotters::coord::types::RangedCoordf64;
 
     fn render_datasets<'a, 'b, DB: DrawingBackend>(
         &self,
@@ -65,7 +65,7 @@ impl ChartType for XYScatter {
             .margin_bottom(margin.y)
             .margin_right(10.0 + margin.x)
             .margin_top(10.0 + margin.y)
-            .build_cartesian_2d(min_x..max_x, min_y..max_y)?;
+            .build_cartesian_2d(min_x as f64..max_x as f64, min_y as f64..max_y as f64)?;
         let mut mesh = chart.configure_mesh();
         let grid = self.grid.clone().unwrap_or(XY::new(false, true));
         if !grid.x {
@@ -83,9 +83,7 @@ impl ChartType for XYScatter {
             let c = dset.extra.colour;
             chart
                 .draw_series(LineSeries::new(
-                    dset.values
-                        .iter()
-                        .map(|v| (v.x.round() as u64, v.y.round() as u64)),
+                    dset.values.iter().map(|v| (v.x, v.y)),
                     dset.extra.colour,
                 ))?
                 .label(dset.extra.name.clone())
