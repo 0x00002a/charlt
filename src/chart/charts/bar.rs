@@ -18,7 +18,7 @@ use serde::Deserialize;
 use super::{decide_steps, Result, StepLabel, XY};
 use crate::{
     chart::{ChartInfo, ChartType, Dataset, DatasetMeta},
-    render::{self, Colour, FontInfo, TextInfo},
+    render::{self, Colour, FontInfo},
 };
 
 pub type BarPoint = f64;
@@ -88,33 +88,6 @@ impl BarChart {
             })
             .collect();
         Ok(blocks)
-    }
-    fn calc_labels(
-        &self,
-        font: &FontInfo,
-        info: &DrawingInfo,
-        margins: &XY<f64>,
-    ) -> Result<Vec<TextInfo>> {
-        if info.nb_cats != self.categories.len() as f64 {
-            return Err(render::Error::InvalidDatasets(format!(
-                "categories and number of blocks do not match {} != {}",
-                self.categories.len(),
-                info.nb_cats
-            )));
-        }
-        let mut out = Vec::with_capacity(self.categories.len());
-        for (group, cat) in self.categories.iter().enumerate() {
-            let (xstart, xend) = info.cat_xbounds(group);
-            out.push(
-                TextInfo::new(cat.to_owned())
-                    .font(font.to_owned())
-                    .transform(Affine::translate((
-                        xstart.midpoint(xend).x,
-                        info.area.max_y() + margins.y,
-                    ))),
-            )
-        }
-        Ok(out)
     }
 }
 
@@ -212,6 +185,8 @@ impl ChartType for BarChart {
         c: &mut ChartBuilder<DB>,
     ) -> Result<()> {
         let dinfo = DrawingInfo::new(&info.datasets, area.to_owned(), self.spacing())?;
+        let fiinfo = info.font();
+        let tfont: TextStyle = fiinfo.into_text_style();
         let mut chart = c
             .set_left_and_bottom_label_area_size(40)
             .margin(10)
@@ -227,15 +202,8 @@ impl ChartType for BarChart {
             .configure_mesh()
             .disable_x_mesh()
             .bold_line_style(&WHITE.mix(0.3))
-            .x_desc("stuff")
             .y_desc(self.axis.to_owned().unwrap_or("".to_owned()))
-            .draw()?;
-        chart
-            .configure_series_labels()
-            .background_style(plotters::style::CYAN)
-            .position(plotters::prelude::SeriesLabelPosition::UpperRight)
-            .label_font(FontFamily::SansSerif)
-            .legend_area_size(40)
+            .y_label_style(tfont.clone())
             .draw()?;
         for (nset, dset) in info.datasets.iter().enumerate() {
             let colour = dset.extra.colour;
@@ -263,6 +231,12 @@ impl ChartType for BarChart {
                 }))?
                 .label(dset.extra.name.clone());
         }
+
+        chart
+            .configure_series_labels()
+            .position(plotters::prelude::SeriesLabelPosition::UpperRight)
+            .label_font(tfont.clone())
+            .draw()?;
         Ok(())
     }
 }

@@ -2,7 +2,7 @@ use std::f64::consts::PI;
 
 use crate::{
     chart::{ChartInfo, ChartType, Dataset, DatasetMeta},
-    render::{self, FontInfo, TextInfo},
+    render::{self, FontInfo},
 };
 
 use super::{decide_steps, Result, StepLabel, XY};

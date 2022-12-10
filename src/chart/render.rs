@@ -1,6 +1,6 @@
 use kurbo::{Affine, Circle, Point, Rect};
 
-use crate::render::{Render, TextInfo};
+use crate::render::Render;
 
 use super::Chart;
 

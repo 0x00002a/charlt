@@ -3,23 +3,34 @@ mod traits;
 use std::fmt::{Debug, Display};
 
 use kurbo::Affine;
-use plotters::style::FontFamily;
+use plotters::style::{FontFamily, IntoTextStyle, TextStyle};
 use serde::Deserialize;
 pub use traits::*;
 
 pub type Colour = plotters::style::RGBAColor;
 
-#[derive(Deserialize, Clone)]
-#[serde(untagged)]
+impl Default for FontInfo {
+    fn default() -> Self {
+        Self {
+            family: FontFamily::SansSerif.into(),
+            size: 12f64,
+        }
+    }
+}
+#[derive(Clone)]
+pub struct FontStore(String);
+impl FontStore {
+    pub fn family<'a>(&'a self) -> FontFamily<'a> {
+        FontFamily::Name(self.0.as_str())
+    }
+}
+
+#[derive(Clone, Deserialize)]
 pub enum FontType {
+    #[serde(with = "font_family_serde")]
+    Store(FontStore),
     #[serde(skip)]
     Family(FontFamily<'static>),
-    Named(String),
-}
-impl From<String> for FontType {
-    fn from(s: String) -> Self {
-        Self::Named(s)
-    }
 }
 impl From<FontFamily<'static>> for FontType {
     fn from(f: FontFamily<'static>) -> Self {
@@ -29,71 +40,27 @@ impl From<FontFamily<'static>> for FontType {
 impl Debug for FontType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Family(arg0) => f.debug_tuple("Family").field(&arg0.as_str()).finish(),
-            Self::Named(arg0) => f.debug_tuple("Named").field(arg0).finish(),
-        }
-    }
-}
-impl Default for FontInfo {
-    fn default() -> Self {
-        Self {
-            family: FontFamily::SansSerif.into(),
-            size: 12f64,
+            Self::Store(arg0) => f.write_str(arg0.0.as_str()),
+            Self::Family(arg0) => f.write_str(arg0.as_str()),
         }
     }
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Clone, Debug)]
 pub struct FontInfo {
     pub family: FontType,
     pub size: f64,
 }
-impl Display for FontType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &self {
-            FontType::Family(fam) => write!(f, "calculated family '{}'", fam.as_str()),
-            FontType::Named(n) => write!(f, "named family '{}'", n),
-        }
-    }
-}
-
-pub struct TextInfo {
-    font: Option<FontInfo>,
-    content: String,
-    colour: Option<Colour>,
-    affine: Affine,
-}
-
-impl Default for TextInfo {
-    fn default() -> Self {
-        Self::new(String::default())
-    }
-}
-
-impl TextInfo {
-    pub fn new(content: String) -> Self {
-        Self {
-            content,
-            font: None,
-            colour: None,
-            affine: Affine::default(),
-        }
-    }
-    pub fn content<S: AsRef<str>>(mut self, c: S) -> Self {
-        self.content = c.as_ref().to_owned();
-        self
-    }
-    pub fn transform(mut self, t: Affine) -> Self {
-        self.affine *= t;
-        self
-    }
-    pub fn colour<C: Into<Colour>>(mut self, c: C) -> Self {
-        self.colour = Some(c.into());
-        self
-    }
-    pub fn font(mut self, f: FontInfo) -> Self {
-        self.font = Some(f);
-        self
+impl FontInfo {
+    pub fn into_text_style<'a>(&'a self) -> TextStyle<'a> {
+        (
+            match &self.family {
+                FontType::Store(s) => s.family(),
+                FontType::Family(f) => f.clone(),
+            },
+            self.size,
+        )
+            .into()
     }
 }
 
@@ -120,3 +87,31 @@ impl<E: std::error::Error + Send + Sync> From<plotters::drawing::DrawingAreaErro
 
 unsafe impl Send for Error {}
 unsafe impl Sync for Error {}
+
+mod font_family_serde {
+    use plotters::style::FontFamily;
+    use serde::{de::Error, Deserialize, Deserializer};
+
+    use crate::render::Colour;
+    use css_color_parser::Color;
+
+    use super::FontStore;
+
+    // The signature of a deserialize_with function must follow the pattern:
+    //
+    //    fn deserialize<'de, D>(D) -> Result<T, D::Error>
+    //    where
+    //        D: Deserializer<'de>
+    //
+    // although it may also be generic over the output types T.
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<FontStore, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        let c = s
+            .parse::<Color>()
+            .map_err(|e| D::Error::custom(e.to_string()))?;
+        Ok(FontStore(s))
+    }
+}

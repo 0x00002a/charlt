@@ -2,7 +2,7 @@ use anyhow::Result;
 use kurbo::{Affine, Point, Rect, Size};
 use plotters::prelude::{ChartBuilder, DrawingBackend};
 
-use super::{Error, TextInfo};
+use super::Error;
 
 pub trait Render {
     type Error: std::error::Error;
