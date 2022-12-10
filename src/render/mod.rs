@@ -1,7 +1,6 @@
 mod traits;
 
-use std::fmt::{Debug};
-
+use std::fmt::Debug;
 
 use plotters::style::{FontFamily, TextStyle};
 use serde::Deserialize;
@@ -68,12 +67,6 @@ impl FontInfo {
 pub enum Error {
     #[error("failed to load font {0}")]
     FontLoading(String),
-    #[error("empty dataset")]
-    EmptyDataset,
-    #[error("not enough space, need at least {0} got {1}: {2}")]
-    NotEnoughSpace(f64, f64, String),
-    #[error("datasets are invalid {0}")]
-    InvalidDatasets(String),
     #[error("plotter drawing error: {0}")]
     PlottersDraw(String),
 }
@@ -89,10 +82,9 @@ unsafe impl Send for Error {}
 unsafe impl Sync for Error {}
 
 mod font_family_serde {
-    
+
     use serde::{de::Error, Deserialize, Deserializer};
 
-    
     use css_color_parser::Color;
 
     use super::FontStore;

@@ -1,8 +1,4 @@
-
-
-use crate::{
-    chart::{ChartInfo, ChartType},
-};
+use crate::chart::{ChartInfo, ChartType};
 
 use super::{legend_for, Result, XY};
 
@@ -93,8 +89,4 @@ impl ChartType for XYScatter {
 }
 
 #[cfg(test)]
-mod tests {
-    
-
-    
-}
+mod tests {}

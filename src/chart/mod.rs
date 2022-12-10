@@ -1,9 +1,7 @@
 mod charts;
 mod render;
 
-use plotters::prelude::{
-    Cartesian2d, ChartBuilder, ChartContext, DrawingBackend, Ranged,
-};
+use plotters::prelude::{Cartesian2d, ChartBuilder, ChartContext, DrawingBackend, Ranged};
 use serde::Deserialize;
 
 pub use charts::*;
@@ -16,8 +14,6 @@ pub struct DatasetMeta {
     name: String,
     #[serde(with = "serde_colour", alias = "color")]
     colour: Colour,
-    #[serde(default = "default_line_thickness")]
-    thickness: f64,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -51,9 +47,6 @@ pub struct Dataset<T: Clone> {
     values: Vec<T>,
     #[serde(flatten)]
     extra: DatasetMeta,
-}
-fn default_line_thickness() -> f64 {
-    return 1.5;
 }
 #[derive(Clone, Debug, Deserialize)]
 pub struct ChartInfo<Pt: Clone> {

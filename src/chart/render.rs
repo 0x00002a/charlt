@@ -1,4 +1,4 @@
-use kurbo::{Rect};
+use kurbo::Rect;
 use plotters::style::full_palette::GREY;
 use plotters::style::{Color, FontDesc, FontFamily, FontStyle, WHITE};
 
@@ -12,6 +12,11 @@ type Result<T> = std::result::Result<T, crate::render::Error>;
 impl<C: ChartType> Render for Chart<C, C::DataPoint> {
     type Error = crate::render::Error;
     fn render<DB: DrawingBackend>(&self, _area: &Rect, c: &mut ChartBuilder<DB>) -> Result<()> {
+        let margins = self.info.margins();
+        c.margin_left(margins.x)
+            .margin_right(margins.x)
+            .margin_bottom(margins.y)
+            .margin_top(margins.y);
         let tfont = FontDesc::new(FontFamily::SansSerif, 12.0, FontStyle::Normal);
         let chwidth = tfont
             .box_size("  ")
