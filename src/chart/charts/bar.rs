@@ -1,24 +1,22 @@
-use std::f64::consts::PI;
+
 use std::ops::Range;
 
-use kurbo::{Affine, Point, Rect};
-use plotters::coord::ranged1d::{DefaultValueFormatOption, NoDefaultFormatting, ValueFormatter};
-use plotters::prelude::{Cartesian2d, ChartContext, Circle, Ranged, SegmentValue};
+
+use plotters::coord::ranged1d::{NoDefaultFormatting, ValueFormatter};
+use plotters::prelude::{Cartesian2d, ChartContext, Ranged};
 use plotters::style::{FontFamily, TextStyle};
-use plotters::{element::Drawable, prelude::IntoSegmentedCoord};
+use plotters::{element::Drawable};
 use plotters::{
     prelude::{
-        BitMapBackend, ChartBuilder, DrawingBackend, IntoDrawingArea, LabelAreaPosition,
-        PathElement, Rectangle,
+        ChartBuilder, DrawingBackend, Rectangle,
     },
-    style::{Color, IntoFont, RGBColor, ShapeStyle, WHITE},
+    style::{Color, ShapeStyle, WHITE},
 };
 use serde::Deserialize;
 
-use super::{decide_steps, legend_for, Result, StepLabel, XY};
+use super::{legend_for, Result};
 use crate::{
-    chart::{ChartInfo, ChartType, Dataset, DatasetMeta},
-    render::{self, Colour, FontInfo},
+    chart::{ChartInfo, ChartType, Dataset},
 };
 
 pub type BarPoint = f64;
@@ -135,7 +133,7 @@ impl Ranged for BarSegments {
         self.cat_names
             .iter()
             .enumerate()
-            .map(|(cn, c)| BarSegment::Normal {
+            .map(|(cn, _c)| BarSegment::Normal {
                 cat: cn as u64,
                 num: (self.blocks as f64 / 2.0).round() as u64,
             })
@@ -227,5 +225,5 @@ fn max_val(datasets: &Vec<Dataset<f64>>) -> f64 {
 #[cfg(test)]
 mod tests {
 
-    use super::*;
+    
 }

@@ -1,9 +1,9 @@
 mod traits;
 
-use std::fmt::{Debug, Display};
+use std::fmt::{Debug};
 
-use kurbo::Affine;
-use plotters::style::{FontFamily, IntoTextStyle, TextStyle};
+
+use plotters::style::{FontFamily, TextStyle};
 use serde::Deserialize;
 pub use traits::*;
 
@@ -89,10 +89,10 @@ unsafe impl Send for Error {}
 unsafe impl Sync for Error {}
 
 mod font_family_serde {
-    use plotters::style::FontFamily;
+    
     use serde::{de::Error, Deserialize, Deserializer};
 
-    use crate::render::Colour;
+    
     use css_color_parser::Color;
 
     use super::FontStore;
@@ -109,7 +109,7 @@ mod font_family_serde {
         D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        let c = s
+        let _c = s
             .parse::<Color>()
             .map_err(|e| D::Error::custom(e.to_string()))?;
         Ok(FontStore(s))

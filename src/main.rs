@@ -1,6 +1,5 @@
 use std::{
     fs::File,
-    io::{BufReader, BufWriter},
 };
 
 use anyhow::{anyhow, Result};
@@ -10,7 +9,7 @@ use kurbo::{Rect, Size};
 use plotters::{
     coord::Shift,
     prelude::{
-        BitMapBackend, ChartBuilder, CoordTranslate, DrawingArea, DrawingBackend, IntoDrawingArea,
+        BitMapBackend, ChartBuilder, DrawingArea, DrawingBackend, IntoDrawingArea,
     },
 };
 use render::Render;

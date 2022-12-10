@@ -1,12 +1,11 @@
-use std::f64::consts::PI;
+
 
 use crate::{
-    chart::{ChartInfo, ChartType, Dataset, DatasetMeta},
-    render::{self, FontInfo},
+    chart::{ChartInfo, ChartType},
 };
 
-use super::{decide_steps, legend_for, Result, StepLabel, XY};
-use kurbo::{Affine, BezPath, Point, Rect, Shape, Size, TranslateScale};
+use super::{legend_for, Result, XY};
+
 use plotters::{
     prelude::{Cartesian2d, ChartBuilder, ChartContext, DrawingBackend},
     series::LineSeries,
@@ -95,7 +94,7 @@ impl ChartType for XYScatter {
 
 #[cfg(test)]
 mod tests {
-    use kurbo::{Line, Shape};
+    
 
-    use super::*;
+    
 }

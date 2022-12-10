@@ -1,8 +1,8 @@
 mod charts;
 mod render;
-use kurbo::Rect;
+
 use plotters::prelude::{
-    Cartesian2d, ChartBuilder, ChartContext, CoordTranslate, DrawingBackend, Ranged,
+    Cartesian2d, ChartBuilder, ChartContext, DrawingBackend, Ranged,
 };
 use serde::Deserialize;
 

@@ -1,20 +1,18 @@
 pub mod bar;
 pub mod xyscatter;
 
-use kurbo::{Line, Rect};
+
 use more_asserts::debug_assert_le;
 use plotters::prelude::Rectangle;
 use serde::Deserialize;
 
-#[cfg(test)]
-use super::DatasetMeta;
-#[cfg(test)]
-use crate::render::Colour;
+
+
 
 use crate::{render, utils::RoundMul};
 
 use self::{bar::BarPoint, xyscatter::XYScatter};
-use super::{Chart, Dataset, XY};
+use super::{Chart, XY};
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(tag = "type")]

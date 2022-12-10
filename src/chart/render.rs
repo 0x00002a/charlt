@@ -1,6 +1,6 @@
-use kurbo::{Affine, Circle, Point, Rect};
+use kurbo::{Rect};
 use plotters::style::full_palette::GREY;
-use plotters::style::{Color, FontDesc, FontFamily, FontStyle, BLACK, WHITE};
+use plotters::style::{Color, FontDesc, FontFamily, FontStyle, WHITE};
 
 use crate::render::{self, Render};
 
@@ -11,7 +11,7 @@ type Result<T> = std::result::Result<T, crate::render::Error>;
 
 impl<C: ChartType> Render for Chart<C, C::DataPoint> {
     type Error = crate::render::Error;
-    fn render<DB: DrawingBackend>(&self, area: &Rect, c: &mut ChartBuilder<DB>) -> Result<()> {
+    fn render<DB: DrawingBackend>(&self, _area: &Rect, c: &mut ChartBuilder<DB>) -> Result<()> {
         let tfont = FontDesc::new(FontFamily::SansSerif, 12.0, FontStyle::Normal);
         let chwidth = tfont
             .box_size("  ")
