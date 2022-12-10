@@ -7,7 +7,12 @@ use anyhow::{anyhow, Result};
 use api::InputFormat;
 use clap::{builder::PossibleValue, Parser, ValueEnum};
 use kurbo::{Rect, Size};
-use plotters::prelude::{BitMapBackend, ChartBuilder, DrawingBackend, IntoDrawingArea};
+use plotters::{
+    coord::Shift,
+    prelude::{
+        BitMapBackend, ChartBuilder, CoordTranslate, DrawingArea, DrawingBackend, IntoDrawingArea,
+    },
+};
 use render::Render;
 use serde::{Deserialize, Serialize};
 
@@ -21,8 +26,6 @@ use std::path::Path;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 enum OutputFormat {
-    #[serde(alias = "pdf")]
-    Pdf,
     #[serde(alias = "svg")]
     Svg,
     #[serde(alias = "png")]
@@ -32,7 +35,6 @@ enum OutputFormat {
 impl OutputFormat {
     fn extension(&self) -> &Path {
         match &self {
-            OutputFormat::Pdf => "pdf".as_ref(),
             OutputFormat::Svg => "svg".as_ref(),
             OutputFormat::Png => "png".as_ref(),
         }
@@ -83,34 +85,17 @@ struct CliArgs {
 }
 impl ValueEnum for OutputFormat {
     fn value_variants<'a>() -> &'a [Self] {
-        &[Self::Pdf, Self::Svg, Self::Png]
+        &[Self::Svg, Self::Png]
     }
 
     fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
         Some(match &self {
-            OutputFormat::Pdf => PossibleValue::new("pdf"),
             OutputFormat::Svg => PossibleValue::new("svg"),
             OutputFormat::Png => PossibleValue::new("png"),
         })
     }
 }
-fn do_render<DB: DrawingBackend>(args: &CliArgs, r: &mut ChartBuilder<DB>) -> Result<()> {
-    let mut input = BufReader::new(std::fs::File::open(args.input.to_owned())?);
-    let chart = api::load_chart(
-        &mut input,
-        args.input_format
-            .or_else(|| InputFormat::from_path(args.input.as_ref()))
-            .ok_or(anyhow!("unknown input format"))?,
-    )?;
-    let size = Size::new(args.width as f64, args.height as f64);
-    chart.render(&Rect::from_points((0.0, 0.0), (size.width, size.height)), r)?;
-    Ok(())
-}
-
-fn main() -> Result<()> {
-    let args = CliArgs::parse();
-
-    let root = BitMapBackend::new(&args.output, (args.width, args.height)).into_drawing_area();
+fn do_render<DB: DrawingBackend>(args: &CliArgs, root: DrawingArea<DB, Shift>) -> Result<()> {
     let mut builder = ChartBuilder::on(&root);
     let chart = api::load_chart(
         &mut File::open(&args.input)?,
@@ -118,12 +103,33 @@ fn main() -> Result<()> {
             .or_else(|| InputFormat::from_path(args.input.as_ref()))
             .ok_or(anyhow!("unknown input format"))?,
     )?;
-    root.fill(&plotters::style::WHITE)?;
+    root.fill(&plotters::style::WHITE)
+        .map_err(|e| anyhow!(e.to_string()))?;
     let size = Size::new(args.width as f64, args.height as f64);
     chart.render(
         &Rect::from_points((0.0, 0.0), (size.width, size.height)),
         &mut builder,
     )?;
-    root.present()?;
+    root.present().map_err(|e| anyhow!(e.to_string()))?;
     Ok(())
+}
+
+fn main() -> Result<()> {
+    let args = CliArgs::parse();
+
+    let size = (args.width, args.height);
+    match args
+        .output_format
+        .or_else(|| args.output.as_path().try_into().ok())
+        .expect("unknown output format")
+    {
+        OutputFormat::Svg => do_render(
+            &args,
+            plotters::backend::SVGBackend::new(&args.output, size).into_drawing_area(),
+        ),
+        OutputFormat::Png => do_render(
+            &args,
+            BitMapBackend::new(&args.output, size).into_drawing_area(),
+        ),
+    }
 }

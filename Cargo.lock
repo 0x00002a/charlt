@@ -121,6 +121,7 @@ dependencies = [
  "kurbo",
  "more-asserts",
  "plotters",
+ "plotters-backend",
  "rlua",
  "scopeguard",
  "serde",
