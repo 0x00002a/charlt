@@ -60,6 +60,7 @@ pub struct ChartInfo<Pt: Clone> {
     datasets: Vec<Dataset<Pt>>,
     font: Option<FontInfo>,
     margins: Option<XY<Option<f64>>>,
+    caption: Option<String>,
 }
 impl<Pt: Clone> ChartInfo<Pt> {
     fn font(&self) -> FontInfo {
@@ -79,6 +80,10 @@ impl<Pt: Clone> ChartInfo<Pt> {
                 y: xy.y.unwrap_or(DEFAULT.y),
             })
             .unwrap_or(DEFAULT)
+    }
+
+    pub fn caption(&self) -> String {
+        self.caption.to_owned().unwrap_or("".to_owned())
     }
 }
 

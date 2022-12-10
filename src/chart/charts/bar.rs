@@ -167,6 +167,7 @@ impl ChartType for BarChart {
         let mut chart = c
             .set_left_and_bottom_label_area_size(40)
             .margin(10)
+            .caption(info.caption(), FontFamily::SansSerif)
             .build_cartesian_2d(
                 BarSegments::new(
                     nb_blocks as u64,
@@ -181,7 +182,7 @@ impl ChartType for BarChart {
             .y_desc(self.axis.to_owned().unwrap_or("".to_owned()))
             .y_label_style(tfont.clone());
         if !self.lines() {
-            mesh.disable_y_axis();
+            mesh.disable_y_mesh();
         }
         mesh.draw()?;
         for (nset, dset) in info.datasets.iter().enumerate() {

@@ -10,7 +10,7 @@ use kurbo::{Affine, BezPath, Point, Rect, Shape, Size, TranslateScale};
 use plotters::{
     prelude::{Cartesian2d, ChartBuilder, ChartContext, DrawingBackend},
     series::LineSeries,
-    style::{Color, WHITE},
+    style::{Color, FontFamily, WHITE},
 };
 use serde::Deserialize;
 
@@ -60,21 +60,25 @@ impl ChartType for XYScatter {
         let margin = self.margin();
         let mut chart = c
             .set_left_and_bottom_label_area_size(40)
+            .caption(info.caption(), FontFamily::SansSerif)
             .margin_left(margin.x)
             .margin_bottom(margin.y)
+            .margin_right(10.0 + margin.x)
+            .margin_top(10.0 + margin.y)
             .build_cartesian_2d(min_x..max_x, min_y..max_y)?;
         let mut mesh = chart.configure_mesh();
         let grid = self.grid.clone().unwrap_or(XY::new(false, true));
         if !grid.x {
-            mesh.disable_x_axis();
+            mesh.disable_x_mesh();
         }
         if !grid.y {
-            mesh.disable_y_axis();
+            mesh.disable_y_mesh();
         }
         mesh.bold_line_style(&WHITE.mix(0.3))
             .x_desc(self.axis.x.clone())
             .y_desc(self.axis.y.clone())
-            .label_style(tfont.clone());
+            .label_style(tfont.clone())
+            .draw()?;
         for dset in &info.datasets {
             let c = dset.extra.colour;
             chart
