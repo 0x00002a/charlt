@@ -3,7 +3,7 @@ use std::ops::Range;
 
 use kurbo::{Affine, Point, Rect};
 use plotters::coord::ranged1d::{DefaultValueFormatOption, NoDefaultFormatting, ValueFormatter};
-use plotters::prelude::{Circle, Ranged, SegmentValue};
+use plotters::prelude::{Cartesian2d, ChartContext, Circle, Ranged, SegmentValue};
 use plotters::style::{FontFamily, TextStyle};
 use plotters::{element::Drawable, prelude::IntoSegmentedCoord};
 use plotters::{
@@ -91,12 +91,12 @@ impl BarChart {
     }
 }
 
-enum BarSegment {
+pub enum BarSegment {
     Normal { cat: u64, num: u64 },
     End,
 }
 
-struct BarSegments {
+pub struct BarSegments {
     blocks: u64,
     cat_names: Vec<String>,
     spacing: u64,
@@ -175,15 +175,15 @@ impl Ranged for BarSegments {
 
 impl ChartType for BarChart {
     type DataPoint = BarPoint;
+    type X = BarSegments;
+    type Y = plotters::coord::types::RangedCoordu64;
 
-    const NAME: &'static str = "bar";
-
-    fn render_datasets<DB: DrawingBackend>(
+    fn render_datasets<'a, 'b, DB: DrawingBackend>(
         &self,
         info: &ChartInfo<f64>,
         area: &kurbo::Rect,
-        c: &mut ChartBuilder<DB>,
-    ) -> Result<()> {
+        c: &mut ChartBuilder<'a, 'b, DB>,
+    ) -> Result<ChartContext<'a, DB, Cartesian2d<Self::X, Self::Y>>> {
         let dinfo = DrawingInfo::new(&info.datasets, area.to_owned(), self.spacing())?;
         let fiinfo = info.font();
         let tfont: TextStyle = fiinfo.into_text_style();
@@ -232,13 +232,7 @@ impl ChartType for BarChart {
                 .label(dset.extra.name.clone())
                 .legend(move |pt| legend_for(pt, colour));
         }
-
-        chart
-            .configure_series_labels()
-            .position(plotters::prelude::SeriesLabelPosition::UpperRight)
-            .label_font(tfont.clone())
-            .draw()?;
-        Ok(())
+        Ok(chart)
     }
 }
 

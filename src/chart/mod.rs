@@ -1,7 +1,9 @@
 mod charts;
 mod render;
 use kurbo::Rect;
-use plotters::prelude::{ChartBuilder, DrawingBackend};
+use plotters::prelude::{
+    Cartesian2d, ChartBuilder, ChartContext, CoordTranslate, DrawingBackend, Ranged,
+};
 use serde::Deserialize;
 
 pub use charts::*;
@@ -89,13 +91,14 @@ pub struct Chart<C, Pt: Clone> {
 }
 pub trait ChartType: Clone {
     type DataPoint: Clone;
-    const NAME: &'static str;
-    fn render_datasets<DB: DrawingBackend>(
+    type X: Ranged;
+    type Y: Ranged;
+    fn render_datasets<'a, 'b, DB: DrawingBackend>(
         &self,
         info: &ChartInfo<Self::DataPoint>,
         area: &Rect,
-        c: &mut ChartBuilder<DB>,
-    ) -> Result<(), crate::render::Error>;
+        c: &mut ChartBuilder<'a, 'b, DB>,
+    ) -> Result<ChartContext<'a, DB, Cartesian2d<Self::X, Self::Y>>, crate::render::Error>;
 }
 mod serde_colour {
     use serde::{de::Error, Deserialize, Deserializer};
