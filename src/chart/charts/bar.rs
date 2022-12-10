@@ -3,7 +3,7 @@ use std::ops::Range;
 
 use kurbo::{Affine, Point, Rect};
 use plotters::coord::ranged1d::{DefaultValueFormatOption, NoDefaultFormatting, ValueFormatter};
-use plotters::prelude::{Ranged, SegmentValue};
+use plotters::prelude::{Circle, Ranged, SegmentValue};
 use plotters::style::{FontFamily, TextStyle};
 use plotters::{element::Drawable, prelude::IntoSegmentedCoord};
 use plotters::{
@@ -229,7 +229,8 @@ impl ChartType for BarChart {
                         colour.filled(),
                     )
                 }))?
-                .label(dset.extra.name.clone());
+                .label(dset.extra.name.clone())
+                .legend(move |(x, y)| Circle::new((x, y), 3, colour.filled()));
         }
 
         chart
