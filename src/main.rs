@@ -30,6 +30,8 @@ enum OutputFormat {
     Svg,
     #[serde(alias = "png")]
     Png,
+    #[serde(alias = "pdf")]
+    Pdf,
 }
 
 impl OutputFormat {
@@ -37,6 +39,7 @@ impl OutputFormat {
         match &self {
             OutputFormat::Svg => "svg".as_ref(),
             OutputFormat::Png => "png".as_ref(),
+            OutputFormat::Pdf => "pdf".as_ref(),
         }
     }
 }
@@ -85,11 +88,12 @@ struct CliArgs {
 }
 impl ValueEnum for OutputFormat {
     fn value_variants<'a>() -> &'a [Self] {
-        &[Self::Svg, Self::Png]
+        &[Self::Pdf, Self::Svg, Self::Png]
     }
 
     fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
         Some(match &self {
+            OutputFormat::Pdf => PossibleValue::new("pdf"),
             OutputFormat::Svg => PossibleValue::new("svg"),
             OutputFormat::Png => PossibleValue::new("png"),
         })
@@ -131,5 +135,14 @@ fn main() -> Result<()> {
             &args,
             BitMapBackend::new(&args.output, size).into_drawing_area(),
         ),
+        OutputFormat::Pdf => {
+            let surface =
+                cairo::PdfSurface::new(args.width as f64, args.height as f64, &args.output)?;
+            do_render(
+                &args,
+                plotters_cairo::CairoBackend::new(&cairo::Context::new(&surface)?, size)?
+                    .into_drawing_area(),
+            )
+        }
     }
 }

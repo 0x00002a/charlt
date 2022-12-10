@@ -7,12 +7,14 @@ edition = "2021"
 
 [dependencies]
 anyhow = { version = "1.0.66", features = ["backtrace"] }
+cairo-rs = { version = "0.15.12", default-features = false, features = ["pdf"] }
 clap = { version = "4.0.27", features = ["derive"] }
 css-color-parser = "0.1.2"
 csv = "1.1.6"
 kurbo = "0.9.0"
 more-asserts = "0.3.1"
 plotters = "0.3.4"
+plotters-cairo = "0.3.2"
 rlua = "0.19.4"
 scopeguard = "1.1.0"
 serde = { version = "1.0.148", features = ["derive"] }
