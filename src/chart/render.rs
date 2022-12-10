@@ -12,7 +12,7 @@ type Result<T> = std::result::Result<T, crate::render::Error>;
 impl<C: ChartType> Render for Chart<C, C::DataPoint> {
     type Error = crate::render::Error;
     fn render<DB: DrawingBackend>(&self, area: &Rect, c: &mut ChartBuilder<DB>) -> Result<()> {
-        let tfont = FontDesc::new(FontFamily::SansSerif, 13.0, FontStyle::Bold);
+        let tfont = FontDesc::new(FontFamily::SansSerif, 12.0, FontStyle::Normal);
         let chwidth = tfont
             .box_size("  ")
             .map_err(|e| render::Error::FontLoading(e.to_string()))?

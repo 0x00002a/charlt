@@ -3,6 +3,7 @@ pub mod xyscatter;
 
 use kurbo::{Line, Rect};
 use more_asserts::debug_assert_le;
+use plotters::prelude::Rectangle;
 use serde::Deserialize;
 
 #[cfg(test)]
@@ -46,10 +47,10 @@ impl Into<u64> for StepLabel<f64> {
     }
 }
 fn legend_for<C: plotters::style::Color>(
-    pt: (i32, i32),
+    (x, y): (i32, i32),
     c: C,
-) -> plotters::element::Circle<(i32, i32), i32> {
-    plotters::element::Circle::new(pt, 3, c.filled())
+) -> plotters::element::Rectangle<(i32, i32)> {
+    Rectangle::new([(x - 5, y - 5), (x + 20, y + 5)], c.filled())
 }
 
 fn decide_steps(len: f64, min_val: f64, max_val: f64, step: u32) -> Vec<StepLabel<f64>> {
