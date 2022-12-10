@@ -59,7 +59,7 @@ impl ChartType for XYScatter {
             .unwrap();
         let margin = self.margin();
         let mut chart = c
-            .set_left_and_bottom_label_area_size(40)
+            .set_left_and_bottom_label_area_size(50)
             .caption(info.caption(), FontFamily::SansSerif)
             .margin_left(margin.x)
             .margin_bottom(margin.y)

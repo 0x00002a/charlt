@@ -165,7 +165,7 @@ impl ChartType for BarChart {
         let max_val = max_val(&info.datasets);
         let nb_blocks = info.datasets.len();
         let mut chart = c
-            .set_left_and_bottom_label_area_size(40)
+            .set_left_and_bottom_label_area_size(50)
             .margin(10)
             .caption(info.caption(), FontFamily::SansSerif)
             .build_cartesian_2d(
