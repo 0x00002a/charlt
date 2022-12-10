@@ -212,8 +212,17 @@ impl ChartType for BarChart {
         c: &mut ChartBuilder<DB>,
     ) -> Result<()> {
         let dinfo = DrawingInfo::new(&info.datasets, area.to_owned(), self.spacing())?;
-        let mut chart = //c.build_cartesian_2d(0..70u64, 0u64..dinfo.max_val as u64)?;
-            c.set_left_and_bottom_label_area_size(40).margin(10).build_cartesian_2d(BarSegments::new(dinfo.nb_blocks as u64,self.spacing() as u64, self.categories.iter()), 0u64..(dinfo.max_val + 1.0) as u64)?;
+        let mut chart = c
+            .set_left_and_bottom_label_area_size(40)
+            .margin(10)
+            .build_cartesian_2d(
+                BarSegments::new(
+                    dinfo.nb_blocks as u64,
+                    self.spacing() as u64,
+                    self.categories.iter(),
+                ),
+                0u64..(dinfo.max_val + 1000.0) as u64,
+            )?;
         chart
             .configure_mesh()
             .disable_x_mesh()
@@ -228,20 +237,10 @@ impl ChartType for BarChart {
             .label_font(FontFamily::SansSerif)
             .legend_area_size(40)
             .draw()?;
-        /*chart.draw_series(info.datasets.iter().enumerate().flat_map(|(n_cat, dset)| {
-                    let mut out = Vec::new();
-                    for n in 0..dset.values.len() {
-                        let bar = dinfo.block_rect(n_cat, n, dset.values[n]);
-                        out.push(bar);
-                    }
-                    out.into_iter()
-        }));*/
         for (nset, dset) in info.datasets.iter().enumerate() {
             let colour = dset.extra.colour;
             chart
                 .draw_series((0..self.categories.len()).map(|ncat| {
-                    let start_x = (nset as f64) * dinfo.block_w + dinfo.block_gap() * ncat as f64;
-                    let end_x = start_x + dinfo.block_w;
                     Rectangle::new(
                         [
                             (
@@ -259,35 +258,11 @@ impl ChartType for BarChart {
                                 dset.values[ncat] as u64,
                             ),
                         ],
-                        dset.extra.colour.filled(),
+                        colour.filled(),
                     )
-                    //Rectangle::new([(c.into(), 5u64), (c.into(), 1u64)], plotters::style::BLACK)
                 }))?
-                /* .legend(move |(x, y)| {
-                    PathElement::new(vec![(x, y), (x - 10, y + 20)], colour.stroke_width(3))
-                })*/
                 .label(dset.extra.name.clone());
         }
-
-        /*chart.draw_series(self.categories.iter().enumerate().flat_map(|(ncat, c)| {
-            let mut rects = Vec::new();
-            for n in 0..info.datasets.len() {
-                rects.push(Rectangle::new(
-                    [
-                        (c.into(), 0u64, ncat as u64),
-                        (
-                            c.into(),
-                            info.datasets[n].values[ncat] as u64,
-                            (ncat + 1) as u64,
-                        ),
-                    ],
-                    info.datasets[n].extra.colour,
-                ))
-            }
-            //Rectangle::new([(c.into(), 5u64), (c.into(), 1u64)], plotters::style::BLACK)
-            rects.into_iter()
-        }))?;*/
-        //chart.draw_series(self.series(&info.datasets, &dinfo)?.iter())?;
         Ok(())
     }
 }
