@@ -1,10 +1,8 @@
-mod traits;
-
+use plotters::prelude::{ChartBuilder, DrawingBackend};
 use std::fmt::Debug;
 
 use plotters::style::{FontFamily, TextStyle};
 use serde::Deserialize;
-pub use traits::*;
 
 pub type Colour = plotters::style::RGBAColor;
 
@@ -106,4 +104,9 @@ mod font_family_serde {
             .map_err(|e| D::Error::custom(e.to_string()))?;
         Ok(FontStore(s))
     }
+}
+
+pub trait Render {
+    type Error: std::error::Error;
+    fn render<DB: DrawingBackend>(&self, r: &mut ChartBuilder<DB>) -> Result<(), Self::Error>;
 }
