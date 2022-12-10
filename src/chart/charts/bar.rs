@@ -119,9 +119,9 @@ impl Ranged for BarSegments {
                 let range = (limit.1 - limit.0) as f64;
                 let spacing = self.spacing as f64;
                 let blocks = (self.cats() * self.blocks) as f64;
-                let block_w = (range - (spacing * self.cats() as f64)) / blocks;
-                let block_gap = block_w * self.blocks as f64 + spacing;
-                let x = *cat as f64 * block_gap + block_w * (*num as f64);
+                let block_w = (range - (spacing * 2.0 * self.cats() as f64)) / blocks;
+                let block_gap = block_w * self.blocks as f64 + spacing * 2.0;
+                let x = spacing + *cat as f64 * block_gap + block_w * (*num as f64);
                 limit.0 + x as i32
             }
             BarSegment::End => limit.1,
