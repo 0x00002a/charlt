@@ -1,16 +1,11 @@
-use std::{
-    fs::File,
-};
+use std::fs::File;
 
 use anyhow::{anyhow, Result};
 use api::InputFormat;
 use clap::{builder::PossibleValue, Parser, ValueEnum};
-use kurbo::{Rect, Size};
 use plotters::{
     coord::Shift,
-    prelude::{
-        BitMapBackend, ChartBuilder, DrawingArea, DrawingBackend, IntoDrawingArea,
-    },
+    prelude::{BitMapBackend, ChartBuilder, DrawingArea, DrawingBackend, IntoDrawingArea},
 };
 use render::Render;
 use serde::{Deserialize, Serialize};
@@ -108,11 +103,7 @@ fn do_render<DB: DrawingBackend>(args: &CliArgs, root: DrawingArea<DB, Shift>) -
     )?;
     root.fill(&plotters::style::WHITE)
         .map_err(|e| anyhow!(e.to_string()))?;
-    let size = Size::new(args.width as f64, args.height as f64);
-    chart.render(
-        &Rect::from_points((0.0, 0.0), (size.width, size.height)),
-        &mut builder,
-    )?;
+    chart.render(&mut builder)?;
     root.present().map_err(|e| anyhow!(e.to_string()))?;
     Ok(())
 }

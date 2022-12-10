@@ -1,4 +1,3 @@
-use kurbo::Rect;
 use plotters::style::full_palette::GREY;
 use plotters::style::{Color, FontDesc, FontFamily, FontStyle, WHITE};
 
@@ -11,7 +10,7 @@ type Result<T> = std::result::Result<T, crate::render::Error>;
 
 impl<C: ChartType> Render for Chart<C, C::DataPoint> {
     type Error = crate::render::Error;
-    fn render<DB: DrawingBackend>(&self, _area: &Rect, c: &mut ChartBuilder<DB>) -> Result<()> {
+    fn render<DB: DrawingBackend>(&self, c: &mut ChartBuilder<DB>) -> Result<()> {
         let margins = self.info.margins();
         c.margin_left(margins.x)
             .margin_right(margins.x)
@@ -36,10 +35,10 @@ impl<C: ChartType> Render for Chart<C, C::DataPoint> {
 }
 impl Render for Charts {
     type Error = crate::render::Error;
-    fn render<DB: DrawingBackend>(&self, area: &Rect, r: &mut ChartBuilder<DB>) -> Result<()> {
+    fn render<DB: DrawingBackend>(&self, r: &mut ChartBuilder<DB>) -> Result<()> {
         match &self {
-            Charts::XYScatter(c) => c.render(area, r),
-            Charts::Bar(c) => c.render(area, r),
+            Charts::XYScatter(c) => c.render(r),
+            Charts::Bar(c) => c.render(r),
         }
     }
 }
