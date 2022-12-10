@@ -45,6 +45,12 @@ impl Into<u64> for StepLabel<f64> {
         self.offset.ceil() as u64
     }
 }
+fn legend_for<C: plotters::style::Color>(
+    pt: (i32, i32),
+    c: C,
+) -> plotters::element::Circle<(i32, i32), i32> {
+    plotters::element::Circle::new(pt, 3, c.filled())
+}
 
 fn decide_steps(len: f64, min_val: f64, max_val: f64, step: u32) -> Vec<StepLabel<f64>> {
     let range = max_val.ceil_mul(step as f64) - min_val.floor_mul(step as f64);

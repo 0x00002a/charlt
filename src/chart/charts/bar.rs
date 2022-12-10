@@ -15,7 +15,7 @@ use plotters::{
 };
 use serde::Deserialize;
 
-use super::{decide_steps, Result, StepLabel, XY};
+use super::{decide_steps, legend_for, Result, StepLabel, XY};
 use crate::{
     chart::{ChartInfo, ChartType, Dataset, DatasetMeta},
     render::{self, Colour, FontInfo},
@@ -230,7 +230,7 @@ impl ChartType for BarChart {
                     )
                 }))?
                 .label(dset.extra.name.clone())
-                .legend(move |(x, y)| Circle::new((x, y), 3, colour.filled()));
+                .legend(move |pt| legend_for(pt, colour));
         }
 
         chart
