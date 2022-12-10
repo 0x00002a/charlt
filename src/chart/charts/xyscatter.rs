@@ -18,8 +18,6 @@ use serde::Deserialize;
 pub struct XYScatter {
     /// Labels for the axis
     axis: XY<String>,
-    /// Step sizes
-    steps: XY<u32>,
     /// Draw grid lines? default: {x: true, y: false}
     grid: Option<XY<bool>>,
     /// Margin around plot (between plot and labels)
@@ -40,7 +38,6 @@ impl ChartType for XYScatter {
     fn render_datasets<'a, 'b, DB: DrawingBackend>(
         &self,
         info: &ChartInfo<Self::DataPoint>,
-        area: &kurbo::Rect,
         c: &mut ChartBuilder<'a, 'b, DB>,
     ) -> Result<ChartContext<'a, DB, Cartesian2d<Self::X, Self::Y>>> {
         let fiinfo = info.font();
@@ -60,9 +57,11 @@ impl ChartType for XYScatter {
                 (lmix.min(rmix), lmiy.min(rmiy), lmx.max(rmx), lmy.max(rmy))
             })
             .unwrap();
+        let margin = self.margin();
         let mut chart = c
             .set_left_and_bottom_label_area_size(40)
-            .margin(10)
+            .margin_left(margin.x)
+            .margin_bottom(margin.y)
             .build_cartesian_2d(min_x..max_x, min_y..max_y)?;
         let mut mesh = chart.configure_mesh();
         let grid = self.grid.clone().unwrap_or(XY::new(false, true));

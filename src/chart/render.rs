@@ -12,7 +12,7 @@ impl<C: ChartType> Render for Chart<C, C::DataPoint> {
     fn render<DB: DrawingBackend>(&self, area: &Rect, c: &mut ChartBuilder<DB>) -> Result<()> {
         let tiinfo = self.info.font();
         let tfont = tiinfo.into_text_style();
-        let mut chart = self.extra.render_datasets(&self.info, area, c)?;
+        let mut chart = self.extra.render_datasets(&self.info, c)?;
         chart
             .configure_series_labels()
             .position(plotters::prelude::SeriesLabelPosition::UpperRight)

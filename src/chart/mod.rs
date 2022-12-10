@@ -96,7 +96,6 @@ pub trait ChartType: Clone {
     fn render_datasets<'a, 'b, DB: DrawingBackend>(
         &self,
         info: &ChartInfo<Self::DataPoint>,
-        area: &Rect,
         c: &mut ChartBuilder<'a, 'b, DB>,
     ) -> Result<ChartContext<'a, DB, Cartesian2d<Self::X, Self::Y>>, crate::render::Error>;
 }
