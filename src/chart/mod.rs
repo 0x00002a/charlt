@@ -7,13 +7,17 @@ use serde::Deserialize;
 pub use charts::*;
 pub use render::*;
 
-use crate::render::{Colour, FontInfo};
+use crate::render::{Colour, CssColour, FontInfo};
+
+#[derive(Deserialize, Debug)]
+#[serde(remote = "plotters::style::RGBAColor")]
+struct RGBAColorDef(u8, u8, u8, f64);
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct DatasetMeta {
     name: String,
-    #[serde(with = "serde_colour", alias = "color")]
-    colour: Colour,
+    #[serde(alias = "color")]
+    colour: Option<CssColour>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -110,14 +114,17 @@ mod serde_colour {
     //        D: Deserializer<'de>
     //
     // although it may also be generic over the output types T.
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Colour, D::Error>
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Colour>, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let s = String::deserialize(deserializer)?;
-        let c = s
-            .parse::<Color>()
-            .map_err(|e| D::Error::custom(e.to_string()))?;
-        Ok(plotters::style::RGBAColor(c.r, c.g, c.b, c.a as f64))
+        Option::<String>::deserialize(deserializer)?
+            .map(|s| {
+                let c = s
+                    .parse::<Color>()
+                    .map_err(|e| D::Error::custom(e.to_string()))?;
+                Ok(plotters::style::RGBAColor(c.r, c.g, c.b, c.a as f64))
+            })
+            .transpose()
     }
 }

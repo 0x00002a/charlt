@@ -1,10 +1,44 @@
-use plotters::prelude::{ChartBuilder, DrawingBackend};
+use plotters::{
+    prelude::{ChartBuilder, DrawingBackend},
+    style::RGBAColor,
+};
 use std::fmt::Debug;
 
 use plotters::style::{FontFamily, TextStyle};
 use serde::Deserialize;
 
 pub type Colour = plotters::style::RGBAColor;
+
+#[derive(Clone, Debug, Copy)]
+pub struct CssColour(css_color_parser::Color);
+
+impl CssColour {
+    pub fn as_rgba(&self) -> Colour {
+        self.clone().into()
+    }
+}
+
+impl Into<Colour> for CssColour {
+    fn into(self) -> Colour {
+        RGBAColor(self.0.r, self.0.g, self.0.b, self.0.a as f64)
+    }
+}
+mod colour_de {
+    use super::*;
+    use serde::de::Error;
+    impl<'de> Deserialize<'de> for CssColour {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: serde::Deserializer<'de>,
+        {
+            let s = String::deserialize(deserializer)?;
+            let c = s
+                .parse::<css_color_parser::Color>()
+                .map_err(|e| D::Error::custom(e.to_string()))?;
+            Ok(CssColour(c))
+        }
+    }
+}
 
 impl Default for FontInfo {
     fn default() -> Self {

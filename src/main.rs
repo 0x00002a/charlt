@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 
 mod api;
 mod chart;
+mod palette;
 mod render;
 mod serde_lua;
 mod utils;

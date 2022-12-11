@@ -1,4 +1,7 @@
-use crate::chart::{ChartInfo, ChartType};
+use crate::{
+    chart::{ChartInfo, ChartType},
+    palette::colours,
+};
 
 use super::{legend_for, Result, XY};
 
@@ -74,13 +77,15 @@ impl ChartType for XYScatter {
             .y_desc(self.axis.y.clone())
             .label_style(tfont.clone())
             .draw()?;
+        let mut citer = colours();
         for dset in &info.datasets {
-            let c = dset.extra.colour;
+            let c = dset
+                .extra
+                .colour
+                .map(|c| c.as_rgba())
+                .unwrap_or_else(|| citer.next().unwrap().to_rgba());
             chart
-                .draw_series(LineSeries::new(
-                    dset.values.iter().map(|v| (v.x, v.y)),
-                    dset.extra.colour,
-                ))?
+                .draw_series(LineSeries::new(dset.values.iter().map(|v| (v.x, v.y)), c))?
                 .label(dset.extra.name.clone())
                 .legend(move |pt| legend_for(pt, c));
         }

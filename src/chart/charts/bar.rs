@@ -1,23 +1,18 @@
-
 use std::ops::Range;
 
-
 use plotters::coord::ranged1d::{NoDefaultFormatting, ValueFormatter};
+use plotters::element::Drawable;
 use plotters::prelude::{Cartesian2d, ChartContext, Ranged};
 use plotters::style::{FontFamily, TextStyle};
-use plotters::{element::Drawable};
 use plotters::{
-    prelude::{
-        ChartBuilder, DrawingBackend, Rectangle,
-    },
+    prelude::{ChartBuilder, DrawingBackend, Rectangle},
     style::{Color, ShapeStyle, WHITE},
 };
 use serde::Deserialize;
 
 use super::{legend_for, Result};
-use crate::{
-    chart::{ChartInfo, ChartType, Dataset},
-};
+use crate::chart::{ChartInfo, ChartType, Dataset};
+use crate::palette::colours;
 
 pub type BarPoint = f64;
 #[derive(Clone, Debug, Deserialize)]
@@ -183,8 +178,13 @@ impl ChartType for BarChart {
             mesh.disable_y_mesh();
         }
         mesh.draw()?;
+        let mut citer = colours();
         for (nset, dset) in info.datasets.iter().enumerate() {
-            let colour = dset.extra.colour;
+            let colour = dset
+                .extra
+                .colour
+                .map(|c| c.as_rgba())
+                .unwrap_or_else(|| citer.next().unwrap().to_rgba());
             chart
                 .draw_series((0..self.categories.len()).map(|ncat| {
                     Rectangle::new(
@@ -223,7 +223,4 @@ fn max_val(datasets: &Vec<Dataset<f64>>) -> f64 {
 }
 
 #[cfg(test)]
-mod tests {
-
-    
-}
+mod tests {}

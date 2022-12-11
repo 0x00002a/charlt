@@ -11,7 +11,5 @@ return {
             values = STONKS_VALUES,
         }
     },
-    axis = { x = 'money (£)', y = 'time (h)' },
-    steps = { x = 25, y = 100 },
-    grid = { x = false, y = true }
+    axis = { y = 'money (£)', x = 'time (h)' },
 }

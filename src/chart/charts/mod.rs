@@ -4,8 +4,6 @@ pub mod xyscatter;
 use plotters::prelude::Rectangle;
 use serde::Deserialize;
 
-use crate::render;
-
 use self::{bar::BarPoint, xyscatter::XYScatter};
 use super::{Chart, XY};
 
@@ -18,7 +16,7 @@ pub enum Charts {
     Bar(Chart<bar::BarChart, BarPoint>),
 }
 
-type Result<T> = std::result::Result<T, render::Error>;
+type Result<T> = std::result::Result<T, crate::render::Error>;
 
 fn legend_for<C: plotters::style::Color>(
     (x, y): (i32, i32),
