@@ -24,7 +24,7 @@ pub struct BarChart {
     /// Draw grid lines for the x axis? default: true
     lines: Option<bool>,
     /// Label for the y axis
-    axis: Option<String>,
+    y_label: Option<String>,
 }
 trait ToElement<T: Drawable<DB>, DB: DrawingBackend> {
     fn to_element<S: Into<ShapeStyle>>(self, style: S) -> T;
@@ -49,7 +49,7 @@ impl BarChart {
             spacing: None,
             categories: Vec::default(),
             lines: None,
-            axis: None,
+            y_label: None,
         }
     }
     fn lines(&self) -> bool {
@@ -62,7 +62,15 @@ impl BarChart {
 }
 
 pub enum BarSegment {
-    Normal { cat: u64, num: u64 },
+    Normal {
+        cat: u64,
+        num: u64,
+    },
+
+    /// for drawing labels
+    Center {
+        cat: u64,
+    },
     End,
 }
 
@@ -90,6 +98,7 @@ impl ValueFormatter<BarSegment> for BarSegments {
         match value {
             BarSegment::Normal { cat, .. } => cat.to_string(),
             BarSegment::End => "".to_owned(),
+            BarSegment::Center { cat } => cat.to_string(),
         }
     }
 
@@ -97,6 +106,7 @@ impl ValueFormatter<BarSegment> for BarSegments {
         match value {
             BarSegment::Normal { cat, .. } => self.cat_names[*cat as usize].clone(),
             BarSegment::End => "".to_owned(),
+            BarSegment::Center { cat } => self.cat_names[*cat as usize].clone(),
         }
     }
 }
@@ -107,17 +117,21 @@ impl Ranged for BarSegments {
     type ValueType = BarSegment;
 
     fn map(&self, value: &Self::ValueType, limit: (i32, i32)) -> i32 {
+        let range = (limit.1 - limit.0) as f64;
+        let spacing = self.spacing as f64;
+        let blocks = (self.cats() * self.blocks) as f64;
+        let block_w = (range - (spacing * 2.0 * self.cats() as f64)) / blocks;
+        let block_gap = block_w * self.blocks as f64 + spacing * 2.0;
         match value {
             BarSegment::Normal { cat, num, .. } => {
-                let range = (limit.1 - limit.0) as f64;
-                let spacing = self.spacing as f64;
-                let blocks = (self.cats() * self.blocks) as f64;
-                let block_w = (range - (spacing * 2.0 * self.cats() as f64)) / blocks;
-                let block_gap = block_w * self.blocks as f64 + spacing * 2.0;
                 let x = spacing + *cat as f64 * block_gap + block_w * (*num as f64);
                 limit.0 + x as i32
             }
             BarSegment::End => limit.1,
+            BarSegment::Center { cat } => {
+                let x = block_gap * *cat as f64 + block_gap * 0.5;
+                limit.0 + x as i32
+            }
         }
     }
 
@@ -128,10 +142,7 @@ impl Ranged for BarSegments {
         self.cat_names
             .iter()
             .enumerate()
-            .map(|(cn, _c)| BarSegment::Normal {
-                cat: cn as u64,
-                num: (self.blocks as f64 / 2.0).round() as u64,
-            })
+            .map(|(cn, _c)| BarSegment::Center { cat: cn as u64 })
             .collect()
     }
 
@@ -172,7 +183,7 @@ impl ChartType for BarChart {
         let mut mesh = chart.configure_mesh();
         mesh.disable_x_mesh()
             .bold_line_style(&WHITE.mix(0.3))
-            .y_desc(self.axis.to_owned().unwrap_or("".to_owned()))
+            .y_desc(self.y_label.to_owned().unwrap_or("".to_owned()))
             .y_label_style(tfont.clone());
         if !self.lines() {
             mesh.disable_y_mesh();

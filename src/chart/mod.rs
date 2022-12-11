@@ -7,7 +7,7 @@ use serde::Deserialize;
 pub use charts::*;
 pub use render::*;
 
-use crate::render::{Colour, CssColour, FontInfo};
+use crate::render::{CssColour, FontInfo};
 
 #[derive(Deserialize, Debug)]
 #[serde(remote = "plotters::style::RGBAColor")]
@@ -100,31 +100,4 @@ pub trait ChartType: Clone {
         info: &ChartInfo<Self::DataPoint>,
         c: &mut ChartBuilder<'a, 'b, DB>,
     ) -> Result<ChartContext<'a, DB, Cartesian2d<Self::X, Self::Y>>, crate::render::Error>;
-}
-mod serde_colour {
-    use serde::{de::Error, Deserialize, Deserializer};
-
-    use crate::render::Colour;
-    use css_color_parser::Color;
-
-    // The signature of a deserialize_with function must follow the pattern:
-    //
-    //    fn deserialize<'de, D>(D) -> Result<T, D::Error>
-    //    where
-    //        D: Deserializer<'de>
-    //
-    // although it may also be generic over the output types T.
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<Colour>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        Option::<String>::deserialize(deserializer)?
-            .map(|s| {
-                let c = s
-                    .parse::<Color>()
-                    .map_err(|e| D::Error::custom(e.to_string()))?;
-                Ok(plotters::style::RGBAColor(c.r, c.g, c.b, c.a as f64))
-            })
-            .transpose()
-    }
 }

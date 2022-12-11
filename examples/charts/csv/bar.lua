@@ -26,4 +26,6 @@ return {
     type = "bar",
     datasets = datasets,
     categories = categories,
+    y_label = "objective score",
+    spacing = 20,
 }
